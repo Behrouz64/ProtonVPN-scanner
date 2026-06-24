@@ -21,7 +21,7 @@ version = 0.0.1
 # (list) Application requirements
 requirements = python3,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
 
-# (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
+# (str) Supported orientation
 orientation = portrait
 
 # (bool) Indicate if the application should be fullscreen or not
@@ -36,8 +36,8 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# 🎯 پین کردن نسخه NDK برای سازگاری ۱۰۰٪ با Kivy 2.3.0 و جلوگیری از کرش کمپایلر
-android.ndk = 26b
+# 🎯 تغییر حیاتی ۱: استفاده از نسخه فوق‌پایدار 25c برای هماهنگی کامل با Kivy 2.3.0
+android.ndk = 25c
 
 # (str) Android architecture to build for
 android.archs = arm64-v8a, armeabi-v7a
@@ -47,6 +47,9 @@ android.allow_backup = True
 
 # تایید خودکار لایسنس‌ها
 android.accept_sdk_license = True
+
+# 🎯 تغییر حیاتی ۲: اجبار بیلدوزر به استفاده از پچ‌های جدید مخصوص اوبونتو ۲۴ و رفع خطای کامپایلر
+p4a.branch = master
 
 [buildozer]
 
