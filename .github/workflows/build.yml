@@ -7,7 +7,6 @@ jobs:
   build:
     name: Build APK inside Isolated Container
     runs-on: ubuntu-latest
-    # 🎯 اصلاح تگ کانتینر از master به latest برای دانلود موفقیت‌آمیز
     container:
       image: ghcr.io/kivy/buildozer:latest
 
@@ -15,10 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # تمام پیش‌نیازها درون این ایمیج آماده هستند و مستقیماً وارد فاز بیلد می‌شویم
+      # 🎯 تزریق دقیق و یک‌باره‌ی تاییدیه کاربر روت برای عبور از سد کانتینر
       - name: Build APK with Buildozer
         run: |
-          buildozer -v android debug
+          echo "y" | buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
