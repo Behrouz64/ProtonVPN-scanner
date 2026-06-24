@@ -18,8 +18,8 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # (str) Application versioning
 version = 0.0.1
 
-# (list) Application requirements
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
+# 🎯 تغییر بنیادین: قفل کردن پایتون روی نسخه 3.11 برای جلوگیری از اجرای پایتون 3.14 آزمایشی
+requirements = python3==3.11,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
 orientation = portrait
