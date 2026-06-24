@@ -6,27 +6,23 @@ on:
 jobs:
   build:
     name: Build APK using Buildozer
-    # قفل کردن سیستم‌عامل میزبان روی نسخه پایدار ابونتو ۲۲
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # تنظیم نسخه رسمی جاوا ۱۷
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # تنظیم پایتون ۳.۱۱ برای هماهنگی با لایبرری‌های بیلدوزر
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # نصب دقیق وابستگی‌های لینوکس ابونتو ۲۲ (دارای libtinfo5 فابریک)
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -34,19 +30,16 @@ jobs:
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.36 virtualenv
 
-      # تزریق صریح لایسنس‌های اندروید پیش از شروع بیلد
       - name: Inject Android SDK Licenses
         run: |
           mkdir -p .buildozer/android/platform/android-sdk/licenses
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > .buildozer/android/platform/android-sdk/licenses/android-sdk-license
           echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > .buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
 
-      # اجرای غیرتعاملی و استاندارد بیلدوزر
       - name: Build APK with Buildozer
         run: |
           buildozer -v android debug
 
-      # آپلود فایل نهایی APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
