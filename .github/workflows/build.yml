@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     name: Build APK using Buildozer
-    # حفظ جدیدترین نسخه سرور گیت‌هاب (اوبونتو ۲۴.۰۴) طبق دستور شما
+    # حفظ اوبونتو ۲۴.۰۴ (جدیدترین سرور گیت‌هاب)
     runs-on: ubuntu-latest
 
     steps:
@@ -24,31 +24,29 @@ jobs:
         with:
           python-version: '3.11'
 
+      # نصب دقیق پیش‌نیازهای لینوکس ابونتو ۲۴ بر اساس مستندات کیوی
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext gcc-13 g++-13
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
           pip install --upgrade pip
           pip install --upgrade buildozer setuptools wheel cython virtualenv
 
-      # 🎯 راهکار حرفه‌ای: تغییر سیستم‌عامل میزبان به استفاده از GCC 13 جهت مهار خطاهای سخت‌گیرانه GCC 14
-      - name: Configure GCC 13 as default host compiler
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
-          sudo update-alternatives --set gcc /usr/bin/gcc-13
-
+      # تزریق مستقیم هش لایسنس‌ها برای جلوگیری از فریز شدن
       - name: Inject Android SDK Licenses
         run: |
           mkdir -p .buildozer/android/platform/android-sdk/licenses
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > .buildozer/android/platform/android-sdk/licenses/android-sdk-license
           echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > .buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
 
+      # 🎯 تغییر کلیدی منتقدانه: خنثی کردن تمام متغیرهای NDK پیش‌فرض گیت‌هاب
+      # و تزریق مستقیم فلگ‌های نادیده گرفتن ارورهای پوینتر GCC 14 به موتور پایتون-اندروید
       - name: Build APK with Buildozer
+        env:
+          ANDROID_NDK_HOME: ""
+          ANDROID_NDK_ROOT: ""
+          ANDROID_NDK: ""
+          APP_CFLAGS: "-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
+          APP_LDFLAGS: ""
         run: |
           buildozer -v android debug
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProtonScanner-APK
-          path: bin/*.apk
