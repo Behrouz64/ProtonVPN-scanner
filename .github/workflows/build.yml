@@ -1,37 +1,28 @@
 name: Build Android APK
 
-# این خط به گیت‌هاب می‌گوید: فقط زمانی اجرا شو که من دکمه را زدم!
+# فقط با کلیک دستی شما اجرا می‌شود
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build APK using Buildozer
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # استفاده از موتور آماده و بدون ارور بیلدوزر
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          python-version: '3.11'
+          command: buildozer android debug
+          buildozer_version: master
 
-      # دانلود پیش‌نیازها
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --upgrade buildozer cython virtualenv
-
-      # اجرای دستور بیلدوزر
-      - name: Build APK with Buildozer
-        run: |
-          yes | buildozer -v android debug
-
-      # آپلود فایل APK برای دانلود شما
-      - name: Upload APK Artifact
+      # آپلود فایل نهایی برای دانلود شما
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ProtonScanner-APK
