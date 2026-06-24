@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # نصب پیش‌نیازهای سیستم‌عامل
+      # نصب دقیق پیش‌نیازهای لینوکس ابونتو ۲۴
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -31,7 +31,7 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade buildozer setuptools wheel cython virtualenv
 
-      # 🎯 راهکار حرفه‌ای و استاندارد گوگل: موافقت با تمام لایسنس‌های جدید و قدیم اندروید از طریق ابزار رسمی sdkmanager
+      # موافقت با تمام لایسنس‌های گوگل
       - name: Auto-accept ALL Android SDK Licenses
         run: |
           mkdir -p $HOME/.android
@@ -39,17 +39,12 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
 
-      # اجرای بیلدوزر با مهار تداخل‌های NDK سرور
+      # 🎯 تغییر کلیدی: تزریق مستقیم و گریزناپذیر CFLAGS به خط فرمان کامپایلر
       - name: Build APK with Buildozer
-        env:
-          ANDROID_NDK_HOME: ""
-          ANDROID_NDK_ROOT: ""
-          ANDROID_NDK: ""
-          APP_CFLAGS: "-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
         run: |
-          buildozer -v android debug
+          CFLAGS="-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration" buildozer -v android debug
 
-      # آپلود فایل نهایی برای دانلود شما
+      # استخراج فایل خروجی
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
