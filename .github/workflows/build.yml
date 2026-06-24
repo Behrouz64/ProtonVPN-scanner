@@ -1,20 +1,17 @@
 name: Build Android APK
 
-# اجرای دستی
 on:
   workflow_dispatch:
 
 jobs:
   build:
     name: Build APK using Buildozer
-    # استفاده از جدیدترین نسخه سرور اوبونتو (24.04)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # بیلدوزر و NDK های جدید اندروید به جاوا 17 نیاز دارند
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -26,20 +23,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 🎯 آپدیت حیاتی: نصب libtinfo6 و وابستگی‌های جدید بر اساس مستندات Ubuntu 24.04
+      # 🎯 اضافه شدن pexpect برای تایید خودکار لایسنس‌ها
       - name: Install modern system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
           pip install --upgrade pip
-          pip install --upgrade buildozer cython virtualenv
+          pip install --upgrade buildozer cython virtualenv pexpect
 
-      # کامپایل برنامه (لایسنس‌ها در فایل spec قبلاً تایید شده‌اند)
+      # 🎯 اضافه شدن yes | برای دور زدن هرگونه پرسش و پاسخ (y/n) در سرور
       - name: Build APK with Buildozer
         run: |
-          buildozer -v android debug
+          yes | buildozer -v android debug
 
-      # آپلود فایل نهایی
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
