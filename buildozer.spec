@@ -18,7 +18,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # (str) Application versioning
 version = 0.0.1
 
-# نیازمندی‌های شبکه و کدهای پایتون
+# نیازمندی‌های صریح شبکه و کدهای پایتون
 requirements = python3,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
