@@ -1,19 +1,20 @@
 name: Build Android APK
 
-# اجرای کاملاً دستی با کلیک روی دکمه در تب Actions
+# اجرای دستی
 on:
   workflow_dispatch:
 
 jobs:
   build:
     name: Build APK using Buildozer
+    # استفاده از جدیدترین نسخه سرور اوبونتو (24.04)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # تنظیم نسخه رسمی جاوا 17 که پیش‌نیاز SDKهای جدید اندروید است
+      # بیلدوزر و NDK های جدید اندروید به جاوا 17 نیاز دارند
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -25,22 +26,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      # نصب بسته‌های سیستمی لینوکس ابونتو بر اساس پکیج پیش‌نیاز رسمی کیوی
-      - name: Install system dependencies
+      # 🎯 آپدیت حیاتی: نصب libtinfo6 و وابستگی‌های جدید بر اساس مستندات Ubuntu 24.04
+      - name: Install modern system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
           pip install --upgrade pip
           pip install --upgrade buildozer cython virtualenv
 
-      # اجرای بیلد بدون دستور yes | چون لایسنس را در Spec فعال کردیم
+      # کامپایل برنامه (لایسنس‌ها در فایل spec قبلاً تایید شده‌اند)
       - name: Build APK with Buildozer
         run: |
           buildozer -v android debug
 
-      # استخراج و آماده‌سازی فایل نهایی جهت دانلود
+      # آپلود فایل نهایی
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ProtonScanner-v0.0.2-APK
+          name: ProtonScanner-APK
           path: bin/*.apk
