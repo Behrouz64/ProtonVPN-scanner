@@ -1,51 +1,55 @@
 [app]
-# (str) Title of your application
+
+# (str) عنوان برنامه شما که روی گوشی نصب می‌شود
 title = Proton Scanner
 
-# (str) Package name
+# (str) نام پکیج برنامه (فقط حروف کوچک انگلیسی و بدون فاصله)
 package.name = protonscanner
 
-# (str) Package domain (needed for android/ios packaging)
+# (str) دامنه برنامه (برای ساخت شناسه یکتا مثل org.behrouz.protonscanner)
 package.domain = org.behrouz
 
-# (str) Source code where the main.py lives
+# (str) مسیر فایل‌های سورس (نقطه یعنی همین پوشه فعلی)
 source.dir = .
 
-# (list) Source files to include (let empty to include all the files)
+# (list) پسوندهای مجازی که باید داخل APK قرار بگیرند
 source.include_exts = py,png,jpg,kv,atlas,json
 
-# (str) Application versioning
-version = 0.0.1
+# (str) نسخه برنامه
+version = 0.0.2
 
-# (list) Application requirements
-# مهم‌ترین بخش: کتابخانه‌های مورد نیاز برنامه شما
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
+# (list) کتابخانه‌های مورد نیاز پایتون (بسیار مهم)
+requirements = python3,kivy==2.3.0,requests
 
-# (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
+# (str) جهت صفحه نمایش گوشی (portrait = عمودی)
 orientation = portrait
 
-# (bool) Indicate if the application should be fullscreen or not
+# (bool) آیا برنامه تمام‌صفحه (بدون نوار ساعت و باتری بالای گوشی) باشد؟
 fullscreen = 0
 
-# (list) Permissions
-# مجوز دسترسی به اینترنت برای اسکن سرورها
+# (list) دسترسی‌های اندروید (مجوز اینترنت برای اسکنر کاملاً حیاتی است)
 android.permissions = INTERNET
 
-# (int) Target Android API, should be as high as possible.
+# (int) نسخه API هدف اندروید (33 برای اندروید 13 بسیار پایدار است)
 android.api = 33
 
-# (int) Minimum API your APK / AAB will support.
+# (int) حداقل نسخه اندروید برای نصب برنامه (21 یعنی اندروید 5 به بالا)
 android.minapi = 21
 
-# (str) Android architecture to build for
+# (str) معماری‌های پردازنده گوشی (پشتیبانی از اکثر گوشی‌های جدید و قدیمی)
 android.archs = arm64-v8a, armeabi-v7a
 
-# (bool) enables Android auto backup feature (Android API >=23)
+# (bool) اجازه بکاپ‌گیری خودکار توسط اندروید
 android.allow_backup = True
 
+# 🎯 (بسیار مهم برای گیت‌هاب اکشن) تأیید خودکار لایسنس‌های گوگل برای جلوگیری از فریز شدن سرور
+android.accept_sdk_license = True
+
+
 [buildozer]
-# (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
+
+# (int) سطح نمایش لاگ‌ها (2 یعنی نمایش کامل جزئیات در تب Actions گیت‌هاب)
 log_level = 2
 
-# (int) Display warning if buildozer is run as root (0 = False, 1 = True)
+# (int) نمایش اخطار در صورت اجرای بیلدوزر با دسترسی روت
 warn_on_root = 1
