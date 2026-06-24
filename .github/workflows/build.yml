@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     name: Build APK using Buildozer
+    # حفظ جدیدترین نسخه سرور گیت‌هاب (اوبونتو ۲۴.۰۴) طبق دستور شما
     runs-on: ubuntu-latest
 
     steps:
@@ -26,11 +27,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
-          curl https://sh.rustup.rs -sSf | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext gcc-13 g++-13
           pip install --upgrade pip
-          pip install --upgrade buildozer setuptools wheel cython==0.29.34 virtualenv
+          pip install --upgrade buildozer setuptools wheel cython virtualenv
+
+      # 🎯 راهکار حرفه‌ای: تغییر سیستم‌عامل میزبان به استفاده از GCC 13 جهت مهار خطاهای سخت‌گیرانه GCC 14
+      - name: Configure GCC 13 as default host compiler
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13
+          sudo update-alternatives --set gcc /usr/bin/gcc-13
 
       - name: Inject Android SDK Licenses
         run: |
