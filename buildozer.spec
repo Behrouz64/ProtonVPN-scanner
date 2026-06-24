@@ -18,7 +18,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # (str) Application versioning
 version = 0.0.1
 
-# 🎯 اصلاح کلیدی: حذف ==3.11 جهت اجازه به بیلدوزر برای همگام‌سازی خودکار پایتون میزبان و مقصد
+# (list) Application requirements
 requirements = python3,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
@@ -36,7 +36,7 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# استفاده از نسخه پایدار NDK 25c برای سازگاری با Kivy 2.3.0
+# استفاده از نسخه رسمی و همخوان NDK
 android.ndk = 25c
 
 # (str) Android architecture to build for
@@ -45,8 +45,11 @@ android.archs = arm64-v8a, armeabi-v7a
 # (bool) enables Android auto backup feature
 android.allow_backup = True
 
-# تایید خودکار لایسنس‌ها در سطح بیلدوزر
+# تایید خودکار لایسنس‌ها
 android.accept_sdk_license = True
+
+# 🎯 تغییر بنیادین مهندسی: قفل کردن موتور اندروید روی نسخه پایدار سال 2024 جهت فرار از پایتون 3.14
+p4a.branch = v2024.01.21
 
 [buildozer]
 
