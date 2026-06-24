@@ -36,7 +36,7 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# 🎯 تغییر حیاتی ۱: استفاده از نسخه فوق‌پایدار 25c برای هماهنگی کامل با Kivy 2.3.0
+# 🎯 استفاده از نسخه طلایی NDK 25c برای سازگاری کامل با فرآیند بیلد Kivy 2.3.0
 android.ndk = 25c
 
 # (str) Android architecture to build for
@@ -48,7 +48,7 @@ android.allow_backup = True
 # تایید خودکار لایسنس‌ها
 android.accept_sdk_license = True
 
-# 🎯 تغییر حیاتی ۲: اجبار بیلدوزر به استفاده از پچ‌های جدید مخصوص اوبونتو ۲۴ و رفع خطای کامپایلر
+# 🎯 پچ حیاتی برای پایتون اندروید در توزیع‌های مدرن لینوکس
 p4a.branch = master
 
 [buildozer]
