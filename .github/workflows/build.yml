@@ -14,7 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🎯 تزریق دقیق و یک‌باره‌ی تاییدیه کاربر روت برای عبور از سد کانتینر
       - name: Build APK with Buildozer
         run: |
           echo "y" | buildozer -v android debug
