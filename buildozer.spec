@@ -12,14 +12,14 @@ package.domain = org.behrouz
 # (str) Source code where the main.py lives
 source.dir = .
 
-# (list) Source files to include (let empty to include all the files)
+# (list) Source files to include
 source.include_exts = py,png,jpg,kv,atlas,json
 
 # (str) Application versioning
 version = 0.0.1
 
-# 🎯 تغییر بنیادین: قفل کردن پایتون روی نسخه 3.11 برای جلوگیری از اجرای پایتون 3.14 آزمایشی
-requirements = python3==3.11,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
+# 🎯 قفل کردن پایتون هدف روی نسخه 3.11 جهت انطباق با پایتون سرور گیت‌هاب
+requirements = python3==3.11,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
 orientation = portrait
@@ -36,8 +36,8 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# (str) Android NDK version to use
-android.ndk = 25b
+# 🎯 استفاده از نسخه رسمی و تست‌شده NDK 25c برای سازگاری کامل با فرآیند بیلد Kivy 2.3.0
+android.ndk = 25c
 
 # (str) Android architecture to build for
 android.archs = arm64-v8a, armeabi-v7a
@@ -45,11 +45,8 @@ android.archs = arm64-v8a, armeabi-v7a
 # (bool) enables Android auto backup feature
 android.allow_backup = True
 
-# (bool) Accept SDK license without prompting
+# تایید خودکار لایسنس‌ها در سطح بیلدوزر
 android.accept_sdk_license = True
-
-# (str) python-for-android branch to use
-p4a.branch = master
 
 [buildozer]
 
