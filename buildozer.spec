@@ -18,8 +18,8 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # (str) Application versioning
 version = 0.0.1
 
-# 🎯 قفل کردن پایتون هدف روی نسخه 3.11 جهت انطباق با پایتون سرور گیت‌هاب
-requirements = python3==3.11,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
+# 🎯 اصلاح کلیدی: حذف ==3.11 جهت اجازه به بیلدوزر برای همگام‌سازی خودکار پایتون میزبان و مقصد
+requirements = python3,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
 orientation = portrait
@@ -36,7 +36,7 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# 🎯 استفاده از نسخه رسمی و تست‌شده NDK 25c برای سازگاری کامل با فرآیند بیلد Kivy 2.3.0
+# استفاده از نسخه پایدار NDK 25c برای سازگاری با Kivy 2.3.0
 android.ndk = 25c
 
 # (str) Android architecture to build for
