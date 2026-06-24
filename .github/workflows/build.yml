@@ -7,15 +7,15 @@ jobs:
   build:
     name: Build APK inside Isolated Container
     runs-on: ubuntu-latest
-    # 🎯 استفاده از محیط رسمی و پیش‌ساخته بیلدوزر جهت مهار ۱۰۰٪ تداخل‌های لینوکس میزبان
+    # 🎯 اصلاح تگ کانتینر از master به latest برای دانلود موفقیت‌آمیز
     container:
-      image: ghcr.io/kivy/buildozer:master
+      image: ghcr.io/kivy/buildozer:latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # در این ایمیج، تمام ابزارها، جاوا، پایتون و وابستگی‌ها از قبل در بالاترین سطح پایداری نصب هستند
+      # تمام پیش‌نیازها درون این ایمیج آماده هستند و مستقیماً وارد فاز بیلد می‌شویم
       - name: Build APK with Buildozer
         run: |
           buildozer -v android debug
