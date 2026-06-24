@@ -5,46 +5,21 @@ on:
 
 jobs:
   build:
-    name: Build APK using Buildozer
+    name: Build APK inside Isolated Container
     runs-on: ubuntu-latest
+    # 🎯 استفاده از محیط رسمی و پیش‌ساخته بیلدوزر جهت مهار ۱۰۰٪ تداخل‌های لینوکس میزبان
+    container:
+      image: ghcr.io/kivy/buildozer:master
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      # نصب دقیق پیش‌نیازهای لینوکس ابونتو ۲۴
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
-          pip install --upgrade pip
-          pip install --upgrade buildozer setuptools wheel cython virtualenv
-
-      # موافقت با تمام لایسنس‌های گوگل
-      - name: Auto-accept ALL Android SDK Licenses
-        run: |
-          mkdir -p $HOME/.android
-          touch $HOME/.android/repositories.cfg
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
-
-      # 🎯 تغییر کلیدی: تزریق مستقیم و گریزناپذیر CFLAGS به خط فرمان کامپایلر
+      # در این ایمیج، تمام ابزارها، جاوا، پایتون و وابستگی‌ها از قبل در بالاترین سطح پایداری نصب هستند
       - name: Build APK with Buildozer
         run: |
-          CFLAGS="-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration" buildozer -v android debug
+          buildozer -v android debug
 
-      # استخراج فایل خروجی
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
