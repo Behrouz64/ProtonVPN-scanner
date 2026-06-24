@@ -18,6 +18,7 @@ from kivy.clock import mainthread, Clock
 from kivy.core.window import Window
 from kivy.core.clipboard import Clipboard
 from kivy.factory import Factory
+from kivy.metrics import dp
 
 # پس‌زمینه اصلی شفاف تا گرادیانِ KV دیده شود
 Window.clearcolor = (0, 0, 0, 1)
