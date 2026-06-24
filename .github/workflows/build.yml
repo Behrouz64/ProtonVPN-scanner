@@ -1,35 +1,46 @@
 name: Build Android APK
 
+# اجرای کاملاً دستی با کلیک روی دکمه در تب Actions
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build APK
-    # استفاده از نسخه پایدار و بدون خطای لینوکس
-    runs-on: ubuntu-20.04
+    name: Build APK using Buildozer
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      # تنظیم نسخه رسمی جاوا 17 که پیش‌نیاز SDKهای جدید اندروید است
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      # نصب بسته‌های سیستمی لینوکس ابونتو بر اساس پکیج پیش‌نیاز رسمی کیوی
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip install --upgrade pip
           pip install --upgrade buildozer cython virtualenv
 
-      - name: Build APK
+      # اجرای بیلد بدون دستور yes | چون لایسنس را در Spec فعال کردیم
+      - name: Build APK with Buildozer
         run: |
-          yes | buildozer -v android debug
+          buildozer -v android debug
 
-      - name: Upload APK
+      # استخراج و آماده‌سازی فایل نهایی جهت دانلود
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ProtonScanner-APK
+          name: ProtonScanner-v0.0.2-APK
           path: bin/*.apk
