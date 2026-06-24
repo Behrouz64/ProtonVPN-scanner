@@ -18,8 +18,8 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # (str) Application versioning
 version = 0.0.1
 
-# (list) Application requirements
-requirements = python3,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
+# 🎯 پین کردن دقیق نیازمندی‌های شبکه پایتون برای جلوگیری از خطای همخوانی لایبرری‌ها
+requirements = python3,kivy==2.3.0,requests,urllib3==1.26.15,certifi,idna,charset-normalizer
 
 # (str) Supported orientation
 orientation = portrait
@@ -36,7 +36,7 @@ android.api = 33
 # (int) Minimum API your APK will support
 android.minapi = 21
 
-# 🎯 استفاده از نسخه طلایی NDK 25c برای سازگاری کامل با فرآیند بیلد Kivy 2.3.0
+# 🎯 استفاده اجباری و ایزوله از NDK 25c جهت انطباق کامل با پچ‌های Kivy 2.3.0
 android.ndk = 25c
 
 # (str) Android architecture to build for
@@ -48,7 +48,7 @@ android.allow_backup = True
 # تایید خودکار لایسنس‌ها
 android.accept_sdk_license = True
 
-# 🎯 پچ حیاتی برای پایتون اندروید در توزیع‌های مدرن لینوکس
+# 🎯 استفاده از شاخه پایدار پچ‌های جدید لینوکس در پایتون اندروید
 p4a.branch = master
 
 [buildozer]
