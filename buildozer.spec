@@ -1,55 +1,57 @@
 [app]
 
-# (str) عنوان برنامه شما که روی گوشی نصب می‌شود
+# (str) Title of your application
 title = Proton Scanner
 
-# (str) نام پکیج برنامه (فقط حروف کوچک انگلیسی و بدون فاصله)
+# (str) Package name
 package.name = protonscanner
 
-# (str) دامنه برنامه (برای ساخت شناسه یکتا مثل org.behrouz.protonscanner)
+# (str) Package domain (needed for android/ios packaging)
 package.domain = org.behrouz
 
-# (str) مسیر فایل‌های سورس (نقطه یعنی همین پوشه فعلی)
+# (str) Source code where the main.py lives
 source.dir = .
 
-# (list) پسوندهای مجازی که باید داخل APK قرار بگیرند
+# (list) Source files to include (let empty to include all the files)
 source.include_exts = py,png,jpg,kv,atlas,json
 
-# (str) نسخه برنامه
-version = 0.0.2
+# (str) Application versioning
+version = 0.0.1
 
-# (list) کتابخانه‌های مورد نیاز پایتون (بسیار مهم)
-requirements = python3,kivy==2.3.0,requests
+# (list) Application requirements
+requirements = python3,kivy==2.3.0,requests,urllib3,certifi,idna,charset-normalizer
 
-# (str) جهت صفحه نمایش گوشی (portrait = عمودی)
+# (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
 
-# (bool) آیا برنامه تمام‌صفحه (بدون نوار ساعت و باتری بالای گوشی) باشد؟
+# (bool) Indicate if the application should be fullscreen or not
 fullscreen = 0
 
-# (list) دسترسی‌های اندروید (مجوز اینترنت برای اسکنر کاملاً حیاتی است)
+# (list) Permissions
 android.permissions = INTERNET
 
-# (int) نسخه API هدف اندروید (33 برای اندروید 13 بسیار پایدار است)
+# (int) Target Android API
 android.api = 33
 
-# (int) حداقل نسخه اندروید برای نصب برنامه (21 یعنی اندروید 5 به بالا)
+# (int) Minimum API your APK will support
 android.minapi = 21
 
-# (str) معماری‌های پردازنده گوشی (پشتیبانی از اکثر گوشی‌های جدید و قدیمی)
+# 🎯 پین کردن نسخه NDK برای سازگاری ۱۰۰٪ با Kivy 2.3.0 و جلوگیری از کرش کمپایلر
+android.ndk = 26b
+
+# (str) Android architecture to build for
 android.archs = arm64-v8a, armeabi-v7a
 
-# (bool) اجازه بکاپ‌گیری خودکار توسط اندروید
+# (bool) enables Android auto backup feature
 android.allow_backup = True
 
-# 🎯 (بسیار مهم برای گیت‌هاب اکشن) تأیید خودکار لایسنس‌های گوگل برای جلوگیری از فریز شدن سرور
+# تایید خودکار لایسنس‌ها
 android.accept_sdk_license = True
-
 
 [buildozer]
 
-# (int) سطح نمایش لاگ‌ها (2 یعنی نمایش کامل جزئیات در تب Actions گیت‌هاب)
+# (int) Log level (2 = debug)
 log_level = 2
 
-# (int) نمایش اخطار در صورت اجرای بیلدوزر با دسترسی روت
+# (int) Display warning if buildozer is run as root
 warn_on_root = 1
