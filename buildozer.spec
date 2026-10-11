@@ -15,6 +15,9 @@ source.dir = .
 # (list) Source files to include
 source.include_exts = py,png,jpg,kv,atlas,json
 
+# (list) Directories to leave out of the APK (tests are not needed at runtime)
+source.exclude_dirs = tests
+
 # (str) Application versioning
 version = 0.0.1
 
