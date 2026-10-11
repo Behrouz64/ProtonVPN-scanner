@@ -33,10 +33,14 @@ git clone <آدرس مخزن> ProtonVPN-scanner
 cd ProtonVPN-scanner
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 ```
 
-`source .venv/bin/activate` را در هر پنجره ترمینال جدید دوباره اجرا کنید. وقتی محیط فعال است، ابتدای خط فرمان `(.venv)` دیده می‌شود و `which python` مسیری داخل `.venv/bin/` نشان می‌دهد. اگر این‌طور نبود، برنامه با Python سیستم اجرا می‌شود و خطای `No module named 'kivy'` می‌دهد.
+از `python -m pip` استفاده کنید، نه `pip` تنها؛ چون `pip` ممکن است به Python دیگری تعلق داشته باشد و پکیج‌ها را جای اشتباه نصب کند.
+
+`source .venv/bin/activate` را در هر پنجره ترمینال جدید دوباره اجرا کنید. وقتی محیط فعال است، ابتدای خط فرمان `(.venv)` دیده می‌شود و `which python` مسیری داخل `.venv/bin/` نشان می‌دهد. اگر این‌طور نبود، برنامه با Python سیستم اجرا می‌شود و خطای `No module named 'kivy'` یا `No module named 'requests'` می‌دهد.
+
+اگر نصب موفق بود، آخرین خط خروجی باید با `Successfully installed` شروع شود و شامل `kivy-2.3.0` و `requests` باشد. اگر خطا دیدید، کل خروجی آن را نگه دارید.
 
 ### ۳. اجرای تست‌های واحد
 
