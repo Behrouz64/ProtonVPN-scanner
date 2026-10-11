@@ -311,7 +311,7 @@ class ScannerApp:
 
     def build_guide_tab(self):
         return ft.Column(
-            [ui.guide_section(section, self.lang) for section in guide_content.GUIDE[self.lang]],
+            [ui.guide_section(section, self.lang, self.open_url) for section in guide_content.GUIDE[self.lang]],
             spacing=12,
         )
 
@@ -706,11 +706,17 @@ class ScannerApp:
         self.toast('ok', 'settings_reset_done')
         self.page.update()
 
+    async def open_url(self, url):
+        try:
+            await self.launcher.launch_url(url)
+        except Exception as exc:  # مرورگر در دسترس نباشد نباید برنامه را از کار بیندازد
+            self.toast('error', 'err_generic', error=str(exc))
+
     async def open_telegram(self, e=None):
-        await self.launcher.launch_url('https://t.me/ProtonVpnScanner')
+        await self.open_url('https://t.me/ProtonVpnScanner')
 
     async def open_x(self, e=None):
-        await self.launcher.launch_url('https://x.com/BehrouzSdn')
+        await self.open_url('https://x.com/BehrouzSdn')
 
 
 async def main(page: ft.Page):

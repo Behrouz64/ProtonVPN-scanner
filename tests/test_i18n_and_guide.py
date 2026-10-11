@@ -62,11 +62,15 @@ class BidiIsolationTests(unittest.TestCase):
         text = i18n.isolate_ltr('کپی لینک‌های wg://')
         self.assertIn(f'{BIDI_LRI}wg://{BIDI_PDI}', text)
 
+    def test_latin_phrase_stays_together(self):
+        text = i18n.isolate_ltr('از App Store.')
+        self.assertIn(f'{BIDI_LRI}App Store.{BIDI_PDI}', text)
+
     def test_file_extension_is_isolated_inside_brackets(self):
         self.assertEqual(i18n.isolate_ltr('(.conf)'), f'({BIDI_LRI}.conf{BIDI_PDI})')
 
     def test_plain_words_and_lone_symbols_are_left_alone(self):
-        for text in ('WireGuard کلید', 'a = b', 'بعد - قبل', '17 ms'):
+        for text in ('WireGuard کلید', 'بعد - قبل', '17 ms'):
             with self.subTest(text=text):
                 self.assertEqual(i18n.isolate_ltr(text), text)
 
@@ -90,12 +94,22 @@ class GuideContentTests(unittest.TestCase):
                         self.assertEqual(len(fa_value), len(en_value))
 
     def test_only_known_block_kinds_are_used(self):
-        allowed = {'p', 'ul', 'ol', 'note', 'warn'}
+        allowed = {'p', 'ul', 'ol', 'note', 'warn', 'link'}
         for lang, sections in guide_content.GUIDE.items():
             for section in sections:
                 for kind, _ in section['blocks']:
                     with self.subTest(lang=lang, kind=kind):
                         self.assertIn(kind, allowed)
+
+    def test_links_are_https_and_identical_in_both_languages(self):
+        for index, (fa, en) in enumerate(zip(guide_content.GUIDE['fa'], guide_content.GUIDE['en'])):
+            fa_links = [value for kind, value in fa['blocks'] if kind == 'link']
+            en_links = [value for kind, value in en['blocks'] if kind == 'link']
+            with self.subTest(section=index):
+                self.assertEqual([url for _, url in fa_links], [url for _, url in en_links])
+                for label, url in fa_links:
+                    self.assertTrue(label.strip())
+                    self.assertTrue(url.startswith('https://'), url)
 
     def test_guide_text_contains_no_real_looking_key(self):
         for lang, sections in guide_content.GUIDE.items():

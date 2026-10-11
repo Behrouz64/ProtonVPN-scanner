@@ -56,6 +56,8 @@ python main.py
 4. **سرورها**: کلید خصوصی WireGuard را وارد کنید. برای هر سرور می‌توانید IP، لینک `wg://`، کانفیگ، کد QR یا فایل `.conf` بگیرید.
 5. **تنظیمات**: زبان، روشن یا خاموش بودن پنهان‌سازی AmneziaWG و بازگردانی مقادیر پیشنهادی.
 
+سروری که «سالم» نشان داده می‌شود فقط از غربالگری پینگ اولیه گذشته است. برای اطمینان، لینک‌ها یا فایل‌های `.conf` را در یک کلاینت واقعی مثل Shadowrocket یا AmneziaVPN تست کنید. لینک‌های این برنامه‌ها و توضیح بیشتر در تب **راهنما** است.
+
 کلید خصوصی فقط در همان پنجره نگه داشته می‌شود و برنامه آن را ذخیره یا منتشر نمی‌کند. کلید را در چت، عکس صفحه یا فروم نفرستید.
 
 ## ساختار پروژه
@@ -97,5 +99,7 @@ python -m pip install -r requirements-dev.txt
 python -m unittest -v
 python main.py
 ```
+
+A server shown as alive has only passed the first ping screen. Test the configs in a real client such as Shadowrocket or AmneziaVPN; the Guide tab has the links.
 
 Turn the VPN off before scanning. Never share your private key. This is an unofficial tool and is not affiliated with Proton AG.

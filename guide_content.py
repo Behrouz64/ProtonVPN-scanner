@@ -8,6 +8,7 @@ GUIDE = {
                 ('p', 'ProtonVPN Scanner فهرست سرورهای ProtonVPN را می‌گیرد، سرعت هر سرور را می‌سنجد و سریع‌ترین‌ها را اول نشان می‌دهد.'),
                 ('p', 'سرعت با پینگ (ping) سنجیده می‌شود. پینگ یعنی زمانی که یک پیام کوچک لازم دارد تا به سرور برسد و برگردد. این زمان بر حسب میلی‌ثانیه (ms) است و هرچه عدد کمتر باشد، سرور سریع‌تر است.'),
                 ('p', 'برنامه برای سرورهای پیداشده، کانفیگ WireGuard هم می‌سازد. کانفیگ (config) یک فایل تنظیمات است که برنامه‌ی WireGuard آن را می‌خواند تا به سرور وصل شود.'),
+                ('p', 'سروری که «سالم» نشان داده می‌شود فقط از آزمون پینگ اولیه گذشته است. برای اطمینان، آن را در یک کلاینت واقعی تست کنید؛ بخش «تست واقعی با یک کلاینت» را ببینید.'),
                 ('ul', [
                     'فهرست سرورها را بارگذاری کنید. به این فهرست «دیتابیس» (database) می‌گویند.',
                     'نوع سرور را انتخاب کنید: «رایگان» (Free)، «پولی» (Premium) یا «همه» (All). در صورت نیاز، قاره و کشور را هم انتخاب کنید.',
@@ -72,6 +73,22 @@ GUIDE = {
                     'خروجی ۱۵ سرور برتر (.conf) (Export top 15 (.conf)) فایل‌های کانفیگ ۱۵ سرور سریع‌تر را ذخیره می‌کند.',
                 ]),
                 ('warn', 'اگر کلید خصوصی را وارد کرده باشید، هر فایل .conf، هر لینک wg://، هر کد QR و هر متنی که با کپی WG (Copy WG) کپی شود، آن را دارد. همه‌ی این‌ها را محرمانه نگه دارید.'),
+            ],
+        },
+        {
+            'title': 'تست واقعی با یک کلاینت',
+            'blocks': [
+                ('p', 'برنامه سرورها را فقط با آزمون پینگ غربال می‌کند. سروری که «سالم» نشان داده می‌شود یعنی به پینگ اولیه جواب داده است. این یعنی احتمالاً در دسترس است، اما تضمین نمی‌کند که وصل شود، سرعت خوبی داشته باشد یا ترافیک شما را درست عبور دهد.'),
+                ('p', 'برای تست واقعی، لینک‌های wg:// یا فایل‌های .conf را در یک کلاینت VPN بگذارید که بتواند چند کانفیگ را پشت سر هم تست کند. فقط سرورهایی را نگه دارید که واقعاً وصل می‌شوند و سرعت خوبی دارند.'),
+                ('ul', [
+                    'Shadowrocket: برای iPhone و iPad، از App Store. لینک‌های wg:// را می‌خواند و پولی است. فرمت این لینک‌ها با همین برنامه آزمایش شده است.',
+                    'AmneziaVPN: برنامه‌ی اصلی کلاینت Amnezia و متن‌باز است. برای ویندوز، macOS، لینوکس، اندروید و iPhone منتشر شده است. فایل .conf را از SAVE .CONF یا EXPORT بگیرید و روش وارد کردن آن را در خود برنامه بررسی کنید.',
+                ]),
+                ('link', ('Shadowrocket در App Store', 'https://apps.apple.com/app/shadowrocket/id932747118')),
+                ('link', ('AmneziaVPN: وب‌سایت', 'https://amnezia.org/')),
+                ('link', ('AmneziaVPN: کد منبع در GitHub', 'https://github.com/amnezia-vpn/amnezia-client')),
+                ('note', 'اگر سروری در کلاینت وصل نشد، این موارد را بررسی کنید: کلید خصوصی درست کپی شده باشد، پارامترهای AmneziaWG با سرور یکی باشند و سرور AmneziaWG را پشتیبانی کند. سرور بعدی را هم امتحان کنید.'),
+                ('warn', 'کلاینت‌ها هم کلید خصوصی شما را روی دستگاه خود نگه می‌دارند. فقط کانفیگ‌هایی را وارد کنید که خودتان ساخته‌اید، و کانفیگ‌هایی را که دیگر لازم نیستند از کلاینت حذف کنید.'),
             ],
         },
         {
@@ -168,6 +185,7 @@ GUIDE = {
                 ('p', 'ProtonVPN Scanner gets the list of ProtonVPN servers, measures how fast each server answers, and shows the fastest ones first.'),
                 ('p', 'Speed is measured as ping. Ping is the time a small message needs to go to a server and come back. It is measured in milliseconds (ms). A lower number is faster.'),
                 ('p', 'For the servers it finds, the app can also build WireGuard config files. A config is a settings file. A WireGuard app reads it to connect to a server.'),
+                ('p', 'A server shown as alive has only passed the first ping test. To be sure it works, test it in a real client. See the section "Test for real with a client app".'),
                 ('ul', [
                     'Load the server list. In this app the list is called the database.',
                     'Choose the server type (Free, Premium or All). If you need, also choose a continent and a country.',
@@ -232,6 +250,22 @@ GUIDE = {
                     'Export top 15 (.conf) saves config files for the 15 fastest servers in the results.',
                 ]),
                 ('warn', 'If you have entered your private key, every .conf file, wg:// link, QR code and text copied with Copy WG contains it. Treat all of them as secret.'),
+            ],
+        },
+        {
+            'title': 'Test for real with a client app',
+            'blocks': [
+                ('p', 'The app screens servers with a ping test only. A server shown as alive has answered the first ping. This means it is probably reachable, but it does not guarantee that it connects, is fast, or carries your traffic correctly.'),
+                ('p', 'For a real test, put the wg:// links or .conf files into a VPN client that can test several configs in a row. Keep only the servers that really connect and are fast.'),
+                ('ul', [
+                    'Shadowrocket: for iPhone and iPad, from the App Store. It reads wg:// links and it is a paid app. The wg:// format used here was tested with this app.',
+                    'AmneziaVPN: the main Amnezia client. It is open source and available for Windows, macOS, Linux, Android and iPhone. Take the .conf file from SAVE .CONF or EXPORT, and check the import steps inside the app.',
+                ]),
+                ('link', ('Shadowrocket on the App Store', 'https://apps.apple.com/app/shadowrocket/id932747118')),
+                ('link', ('AmneziaVPN website', 'https://amnezia.org/')),
+                ('link', ('AmneziaVPN source code on GitHub', 'https://github.com/amnezia-vpn/amnezia-client')),
+                ('note', 'If a server does not connect in the client, check these: the private key was copied correctly, the AmneziaWG parameters match the server, and the server supports AmneziaWG. Then try the next server.'),
+                ('warn', 'Clients also keep your private key on the device. Only import configs that you made yourself, and delete the configs you no longer need from the client.'),
             ],
         },
         {

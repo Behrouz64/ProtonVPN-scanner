@@ -203,13 +203,14 @@ def normalize_language(value):
     return value if value in LANGUAGES else DEFAULT_LANGUAGE
 
 
-_ASCII_RUN = re.compile(r'[A-Za-z0-9_./:#=+\-]+')
+_ASCII_RUN = re.compile(r'[A-Za-z0-9_./:#=+\-]+(?:[ \t]+[A-Za-z0-9_./:#=+\-]+)*')
 
 
 def isolate_ltr(text):
-    """توکن‌های لاتین با نقطه یا دونقطه مثل wg:// و .conf را جدا از متن راست‌به‌چپ نگه می‌دارد.
+    """عبارت‌های لاتین با نقطه، دونقطه یا علامت مثل wg:// و .conf و «App Store.» را یک‌جا نگه می‌دارد.
 
-    بدون این کار، پرانتزها و علامت‌ها داخل متن فارسی جای اشتباه می‌گیرند (مثلاً «conf.» به‌جای «.conf»).
+    بدون این کار، پرانتزها و علامت‌ها داخل متن فارسی جای اشتباه می‌گیرند (مثلاً «conf.» به‌جای «.conf»
+    یا «Store. App» به‌جای «App Store.»).
     """
     def wrap(match):
         run = match.group(0)

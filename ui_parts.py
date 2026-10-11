@@ -162,8 +162,20 @@ def qr_canvas(matrix, side=QR_SIDE_PX):
     return cv.Canvas(shapes=shapes, width=side, height=side)
 
 
-def guide_section(section, lang):
-    """یک بخش راهنما را به کارت تبدیل می‌کند. نوع بلوک‌ها: p, ul, ol, note, warn."""
+def link_button(label, url, on_open):
+    """دکمه‌ی باز کردن یک نشانی در مرورگر."""
+    async def on_click(e):
+        await on_open(url)
+    return ft.TextButton(
+        content=label,
+        icon=ft.Icons.OPEN_IN_NEW,
+        on_click=on_click,
+        style=ft.ButtonStyle(color=PRIMARY_HOVER),
+    )
+
+
+def guide_section(section, lang, on_open):
+    """یک بخش راهنما را به کارت تبدیل می‌کند. نوع بلوک‌ها: p, ul, ol, note, warn, link."""
     fix = i18n.isolate_ltr if lang == 'fa' else (lambda text: text)
     controls = [ft.Text(fix(section['title']), size=17, weight=ft.FontWeight.BOLD, color=TEXT)]
     for kind, raw in section['blocks']:
@@ -180,6 +192,9 @@ def guide_section(section, lang):
                 )
                 for number, item in enumerate(value, start=1)
             ], spacing=6))
+        elif kind == 'link':
+            label, url = value
+            controls.append(link_button(fix(label), url, on_open))
         elif kind in ('note', 'warn'):
             tone = PRIMARY if kind == 'note' else DANGER
             controls.append(ft.Container(
