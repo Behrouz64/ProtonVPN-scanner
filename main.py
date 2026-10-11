@@ -152,11 +152,8 @@ class ScannerApp:
             padding=ft.Padding.only(left=16, right=16, top=18, bottom=6),
             content=ft.Row(
                 [
-                    ft.Container(
-                        content=ft.Icon(ft.Icons.SHIELD, color=ui.TEXT, size=20),
-                        width=38, height=38, bgcolor=ui.PRIMARY, border_radius=10,
-                        alignment=ft.Alignment.CENTER,
-                    ),
+                    ft.Image(src='icon.png', width=40, height=40, border_radius=10,
+                             fit=ft.BoxFit.COVER),
                     ft.Column(
                         [
                             ft.Text(self.t('app_name'), size=18, weight=ft.FontWeight.BOLD, color=ui.TEXT),
