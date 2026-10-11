@@ -290,6 +290,15 @@ class LoadDatabaseTests(unittest.TestCase):
         self.assertEqual((data, source), (self.data, 'network'))
         self.assertEqual(core._read_cache(self.cache), self.data)
 
+    def test_zero_max_age_forces_network_even_with_fresh_cache(self):
+        self.write_cache(age_s=10)
+        fresh = [make_item('DE#9')]
+        with mock.patch.object(core, 'download_database', return_value=fresh) as dl:
+            data, source = core.load_database(self.cache, max_age=0)
+        dl.assert_called_once()
+        self.assertEqual((data, source), (fresh, 'network'))
+        self.assertEqual(core._read_cache(self.cache), fresh)
+
     def test_stale_cache_used_when_network_fails(self):
         self.write_cache(age_s=7200)
         with mock.patch.object(core, 'download_database', return_value=None):

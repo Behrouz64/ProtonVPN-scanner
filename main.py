@@ -340,7 +340,7 @@ BoxLayout:
         spacing: dp(8)
         TextInput:
             id: wg_key
-            hint_text: "WireGuard private key (optional, memory only)"
+            hint_text: "WireGuard private key (optional, written to .conf)"
             password: True
             multiline: False
             font_size: '13sp'
@@ -486,13 +486,16 @@ class ProtonScannerApp(App):
         ids.wg_key.disabled = busy
 
     def start_fetch_thread(self):
+        # بعد از اولین لود، دکمه RELOAD کش را دور می‌زند و دیتابیس تازه می‌گیرد
+        force = self.index is not None
         self.root.ids.btn_load.disabled = True
         self.root.ids.btn_load.text = "LOADING..."
         self.set_status("[color=ffcc00]⏳ Loading database...[/color]")
-        threading.Thread(target=self.fetch_data, daemon=True).start()
+        threading.Thread(target=self.fetch_data, args=(force,), daemon=True).start()
 
-    def fetch_data(self):
-        data, source = core.load_database(self.cache_path)
+    def fetch_data(self, force=False):
+        max_age = 0 if force else core.CACHE_MAX_AGE_S
+        data, source = core.load_database(self.cache_path, max_age=max_age)
         if data is None:
             self.set_status("[color=ff3333]❌ Network error and no cache available.[/color]")
             self.finish_load(loaded=False)
