@@ -376,10 +376,6 @@ BoxLayout:
             height: self.minimum_height
 '''
 
-SCAN_LOCKED_IDS = ('btn_load', 'btn_free', 'btn_premium', 'btn_all',
-                   'spin_continent', 'spin_country', 'btn_scan', 'btn_reset',
-                   'btn_export', 'wg_key', 'awg_params')
-
 
 def ping_rgba(ms):
     if ms < PING_FAST_MS:

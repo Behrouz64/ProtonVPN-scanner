@@ -3,6 +3,7 @@
 این ماژول عمداً فقط از کتابخانه‌های استاندارد و requests استفاده می‌کند تا
 بتوان آن را بدون رابط گرافیکی تست کرد.
 """
+import ipaddress
 import json
 import os
 import re
@@ -289,40 +290,60 @@ def is_valid_wg_key(key):
 # این پارامترها باید دقیقاً با سروری که به آن وصل می‌شوید یکی باشند؛
 # سرور باید AmneziaWG را پشتیبانی کند، وگرنه handshake برقرار نمی‌شود.
 AWG_KEYS = ('Jc', 'Jmin', 'Jmax', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4')
+AWG_REQUIRED_KEYS = ('Jc', 'Jmin', 'Jmax', 'H1', 'H2', 'H3', 'H4')
+AWG_DEFAULTS = {'S1': 0, 'S2': 0}
+AWG_H_KEYS = ('H1', 'H2', 'H3', 'H4')
+AWG_UINT32_MAX = 2 ** 32 - 1
+_AWG_UINT_RE = re.compile(r'\d+')
+_AWG_H_RE = re.compile(r'(\d+)(?:-(\d+))?')
 PERSISTENT_KEEPALIVE = 25
+
+
+def _parse_obfuscation_value(key, value, lineno):
+    if key in AWG_H_KEYS:
+        match = _AWG_H_RE.fullmatch(value)
+        if not match:
+            raise ValueError(f'خط {lineno}: مقدار {key} باید عدد یا بازه «a-b» باشد')
+        low = int(match.group(1))
+        high = int(match.group(2)) if match.group(2) else low
+        if low > high or high > AWG_UINT32_MAX:
+            raise ValueError(f'خط {lineno}: مقدار {key} خارج از محدوده است')
+        return f'{low}-{high}' if match.group(2) else str(low)
+
+    if not _AWG_UINT_RE.fullmatch(value):
+        raise ValueError(f'خط {lineno}: مقدار {key} باید عدد صحیح و غیرمنفی باشد')
+    return int(value)
 
 
 def parse_obfuscation(text):
     """پارامترهای AmneziaWG را از متن چسبانده‌شده می‌خواند.
 
     متن خالی یعنی WireGuard ساده و None برمی‌گردد. فقط خط‌های «Key = value» با کلیدهای
-    AWG_KEYS قبول می‌شوند. کلید ناشناخته (مثل PrivateKey) خطا می‌دهد تا اشتباهی
-    چیز دیگری در فایل نوشته نشود. پیام خطا هیچ‌وقت مقدار ورودی را تکرار نمی‌کند.
+    AWG_KEYS قبول می‌شوند. هیچ خطایی متن ورودی را تکرار نمی‌کند، چون ممکن است
+    کلید خصوصی باشد که کاربر اشتباهی چسبانده؛ فقط شماره خط گزارش می‌شود.
     """
     if not text or not text.strip():
         return None
 
     params = {}
-    for line in text.splitlines():
-        line = line.split('#', 1)[0].strip()
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = raw.split('#', 1)[0].strip()
         if not line:
             continue
         if '=' not in line:
-            raise ValueError('خطی بدون «=» در پارامترهای AmneziaWG وجود دارد')
+            raise ValueError(f'خط {lineno}: باید به شکل «نام = مقدار» باشد')
         key, value = (part.strip() for part in line.split('=', 1))
         if key not in AWG_KEYS:
-            raise ValueError(f'کلید ناشناخته در پارامترهای AmneziaWG: {key}')
-        try:
-            number = int(value)
-        except ValueError:
-            raise ValueError(f'مقدار {key} باید عدد صحیح باشد')
-        if number < 0:
-            raise ValueError(f'مقدار {key} نمی‌تواند منفی باشد')
-        params[key] = number
+            raise ValueError(
+                f'خط {lineno}: پارامتر پشتیبانی‌نشده. فقط ' + ', '.join(AWG_KEYS) + ' مجازند')
+        if key in params:
+            raise ValueError(f'خط {lineno}: {key} تکراری است')
+        params[key] = _parse_obfuscation_value(key, value, lineno)
 
-    missing = [key for key in AWG_KEYS if key not in params]
+    missing = [key for key in AWG_REQUIRED_KEYS if key not in params]
     if missing:
         raise ValueError('پارامترهای AmneziaWG ناقص‌اند: ' + ', '.join(missing))
+    params = {**AWG_DEFAULTS, **params}
     if params['Jmin'] > params['Jmax']:
         raise ValueError('Jmin نباید از Jmax بزرگ‌تر باشد')
     return params
@@ -340,6 +361,10 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
         raise ValueError(f"{server['name']}: کلید عمومی WireGuard در دیتابیس موجود نیست")
     if not is_valid_wg_key(public_key):
         raise ValueError(f"{server['name']}: کلید عمومی WireGuard نامعتبر است")
+    try:
+        ipaddress.IPv4Address(server['ip'])
+    except ValueError:
+        raise ValueError(f"{server['name']}: آدرس IP سرور نامعتبر است")
     if private_key and not is_valid_wg_key(private_key):
         raise ValueError('کلید خصوصی WireGuard نامعتبر است (باید ۴۴ کاراکتر base64 باشد)')
 

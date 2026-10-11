@@ -338,16 +338,49 @@ class AmneziaWGParseTests(unittest.TestCase):
     def test_parses_full_block(self):
         params = core.parse_obfuscation(AWG_BLOCK)
         self.assertEqual(params, {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
-                                  'H1': 1, 'H2': 2, 'H3': 3, 'H4': 4})
+                                  'H1': '1', 'H2': '2', 'H3': '3', 'H4': '4'})
 
     def test_ignores_comments_and_blank_lines(self):
         text = '# Bouncing = 0\n\n' + AWG_BLOCK.replace('Jc = 4', 'Jc = 4  # junk count')
         self.assertEqual(core.parse_obfuscation(text)['Jc'], 4)
 
     def test_unknown_key_is_rejected_without_echoing_value(self):
-        with self.assertRaisesRegex(ValueError, 'PrivateKey') as ctx:
+        with self.assertRaisesRegex(ValueError, 'خط') as ctx:
             core.parse_obfuscation(AWG_BLOCK + 'PrivateKey = SECRETVALUE\n')
         self.assertNotIn('SECRETVALUE', str(ctx.exception))
+        self.assertNotIn('PrivateKey', str(ctx.exception))
+
+    def test_bare_private_key_line_is_not_echoed(self):
+        # کلید خصوصی بدون نام کلید: قبلاً بخشی از آن در پیام خطا برمی‌گشت
+        with self.assertRaises(ValueError) as ctx:
+            core.parse_obfuscation(VALID_KEY + '\n' + AWG_BLOCK)
+        self.assertNotIn(VALID_KEY, str(ctx.exception))
+        self.assertNotIn(VALID_KEY[:-1], str(ctx.exception))
+
+    def test_duplicate_key_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'تکراری'):
+            core.parse_obfuscation(AWG_BLOCK + 'Jc = 99\n')
+
+    def test_newer_amneziawg_keys_are_reported_as_unsupported(self):
+        with self.assertRaisesRegex(ValueError, 'پشتیبانی‌نشده'):
+            core.parse_obfuscation(AWG_BLOCK + 'S3 = 5\n')
+
+    def test_h_range_is_accepted_and_kept(self):
+        params = core.parse_obfuscation(AWG_BLOCK.replace('H1 = 1', 'H1 = 100-200'))
+        self.assertEqual(params['H1'], '100-200')
+
+    def test_h_value_above_uint32_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'H1'):
+            core.parse_obfuscation(AWG_BLOCK.replace('H1 = 1', 'H1 = 99999999999'))
+
+    def test_h_range_with_low_above_high_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'H2'):
+            core.parse_obfuscation(AWG_BLOCK.replace('H2 = 2', 'H2 = 9-3'))
+
+    def test_missing_s1_s2_default_to_zero(self):
+        text = AWG_BLOCK.replace('S1 = 0', '').replace('S2 = 0', '')
+        params = core.parse_obfuscation(text)
+        self.assertEqual((params['S1'], params['S2']), (0, 0))
 
     def test_missing_keys_are_named(self):
         text = AWG_BLOCK.replace('H4 = 4', '')
@@ -372,6 +405,12 @@ class AmneziaWGParseTests(unittest.TestCase):
 
 
 class AmneziaWGConfigTests(unittest.TestCase):
+    def test_server_ip_with_newline_is_rejected(self):
+        # IP بدون اعتبارسنجی وارد فایل می‌شد و می‌توانست خط PostUp تزریق کند
+        server = make_server('US#1', ip='1.2.3.4\nPostUp = echo injected')
+        with self.assertRaisesRegex(ValueError, 'IP'):
+            core.build_wireguard_config(server, VALID_KEY_2)
+
     def setUp(self):
         self.server = make_server('US#1', ip='185.159.156.10')
         self.params = core.parse_obfuscation(AWG_BLOCK)
