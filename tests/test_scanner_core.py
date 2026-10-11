@@ -450,5 +450,83 @@ class AmneziaWGConfigTests(unittest.TestCase):
                 self.assertIn('Jc = 4', f.read())
 
 
+
+class DedupeEndpointTests(unittest.TestCase):
+    def test_same_ip_and_key_merge_into_one_with_aliases(self):
+        servers = [
+            make_server('RO#1', ip='10.0.0.1'),
+            make_server('RO#2', ip='10.0.0.1'),
+            make_server('RO#3', ip='10.0.0.1'),
+        ]
+        merged = core.dedupe_endpoints(servers)
+        self.assertEqual([s['name'] for s in merged], ['RO#1'])
+        self.assertEqual(merged[0]['aliases'], ['RO#2', 'RO#3'])
+
+    def test_same_ip_different_key_stays_separate(self):
+        servers = [
+            make_server('RO#1', ip='10.0.0.1', wg_key=VALID_KEY),
+            make_server('RO#2', ip='10.0.0.1', wg_key=VALID_KEY_2),
+        ]
+        self.assertEqual(len(core.dedupe_endpoints(servers)), 2)
+
+    def test_order_and_distinct_hosts_are_kept(self):
+        servers = [make_server('DE#1', ip='10.0.0.2'), make_server('FR#1', ip='10.0.0.3'),
+                   make_server('DE#2', ip='10.0.0.2')]
+        merged = core.dedupe_endpoints(servers)
+        self.assertEqual([s['name'] for s in merged], ['DE#1', 'FR#1'])
+        self.assertEqual(merged[0]['aliases'], ['DE#2'])
+        self.assertEqual(merged[1]['aliases'], [])
+
+    def test_empty_input(self):
+        self.assertEqual(core.dedupe_endpoints([]), [])
+
+    def test_tier_filter_before_dedupe_keeps_tiers_apart(self):
+        raw = [make_item('RO#1', ip='10.0.0.9', tier=0), make_item('RO#2', ip='10.0.0.9', tier=2)]
+        servers = core.extract_servers(raw)
+        free = core.dedupe_endpoints(core.filter_by_tier(servers, 'free'))
+        paid = core.dedupe_endpoints(core.filter_by_tier(servers, 'paid'))
+        self.assertEqual([s['name'] for s in free], ['RO#1'])
+        self.assertEqual([s['name'] for s in paid], ['RO#2'])
+
+
+class WgLinkTests(unittest.TestCase):
+    def test_round_trip_restores_config_exactly(self):
+        conf = build_config_text()
+        link = core.config_to_wg_link(conf)
+        self.assertTrue(link.startswith('wg://'))
+        self.assertNotIn('=', link)
+        self.assertEqual(core.wg_link_to_config(link), conf)
+
+    def test_round_trip_handles_unicode_and_all_padding_lengths(self):
+        for text in ('a', 'ab', 'abc', 'abcd', 'کلید ✓'):
+            self.assertEqual(core.wg_link_to_config(core.config_to_wg_link(text)), text)
+
+    def test_wrong_prefix_is_rejected(self):
+        with self.assertRaises(ValueError):
+            core.wg_link_to_config('https://example.com/abc')
+
+    def test_invalid_payload_is_rejected(self):
+        with self.assertRaises(ValueError):
+            core.wg_link_to_config('wg://!!!not-base64!!!')
+
+
+@unittest.skipUnless(core.qr_available(), 'qrcode is not installed')
+class QrMatrixTests(unittest.TestCase):
+    def test_matrix_is_square_with_dark_modules(self):
+        matrix = core.qr_matrix(build_config_text())
+        self.assertEqual(len(matrix), len(matrix[0]))
+        self.assertTrue(any(any(row) for row in matrix))
+        self.assertFalse(any(matrix[0]))  # حاشیه‌ی سفید
+
+    def test_unavailable_package_raises(self):
+        with mock.patch.object(core, 'qrcode', None):
+            with self.assertRaises(RuntimeError):
+                core.qr_matrix('x')
+
+
+def build_config_text():
+    server = make_server('US#1', ip='185.159.156.10')
+    return core.build_wireguard_config(server, VALID_KEY_2)
+
 if __name__ == '__main__':
     unittest.main()

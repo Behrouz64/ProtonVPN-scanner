@@ -19,6 +19,11 @@ from dataclasses import dataclass, field
 import requests
 
 try:
+    import qrcode
+except ImportError:  # qrcode فقط برای نمایش QR لازم است
+    qrcode = None
+
+try:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
     from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
@@ -168,6 +173,22 @@ def extract_servers(raw_data):
             'wg_key': entry.get('X25519PublicKey', '') or '',
         })
     return servers
+
+
+def dedupe_endpoints(servers):
+    """یک سرور فیزیکی ممکن است چند نام منطقی داشته باشد (مثلاً RO#1 تا RO#4) با همان IP و کلید.
+
+    هر (IP, کلید عمومی) فقط یک بار نگه داشته می‌شود؛ نام‌های دیگر در aliases می‌آیند.
+    در دیتابیس فعلی، همه‌ی IPهای تکراری کلید عمومی و سطح یکسان دارند، پس ادغام بی‌خطر است.
+    """
+    groups = {}
+    for server in servers:
+        identity = (server['ip'], server['wg_key'])
+        if identity not in groups:
+            groups[identity] = {**server, 'aliases': []}
+        else:
+            groups[identity]['aliases'].append(server['name'])
+    return list(groups.values())
 
 
 def filter_by_tier(servers, mode):
@@ -552,3 +573,39 @@ def verify_handshake(server, private_key, timeout=HANDSHAKE_TIMEOUT_S, port=None
         return False
     finally:
         sock.close()
+
+
+# ---------- لینک wg:// و QR ----------
+# فرمت غیراستاندارد: «wg://» و سپس base64 (بدون padding) متن کامل کانفیگ.
+# برنامه‌های رسمی WireGuard این لینک را باز نمی‌کنند؛ برای وارد کردن از QR یا فایل استفاده کنید.
+WG_LINK_PREFIX = 'wg://'
+
+
+def config_to_wg_link(conf_text):
+    payload = base64.urlsafe_b64encode(conf_text.encode('utf-8')).decode('ascii').rstrip('=')
+    return WG_LINK_PREFIX + payload
+
+
+def wg_link_to_config(link):
+    if not link.startswith(WG_LINK_PREFIX):
+        raise ValueError('لینک با wg:// شروع نمی‌شود')
+    payload = link[len(WG_LINK_PREFIX):]
+    padded = payload + '=' * (-len(payload) % 4)
+    try:
+        return base64.urlsafe_b64decode(padded.encode('ascii')).decode('utf-8')
+    except (ValueError, UnicodeError):
+        raise ValueError('لینک wg:// نامعتبر است')
+
+
+def qr_available():
+    return qrcode is not None
+
+
+def qr_matrix(text):
+    """ماتریس بولی QR (True = مربع تیره) شامل حاشیه‌ی سفید؛ برای رسم در Kivy."""
+    if qrcode is None:
+        raise RuntimeError('بسته‌ی qrcode نصب نیست')
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4)
+    qr.add_data(text)
+    qr.make(fit=True)
+    return qr.get_matrix()

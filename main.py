@@ -10,7 +10,9 @@ from kivy.clock import mainthread
 from kivy.core.window import Window
 from kivy.core.clipboard import Clipboard
 from kivy.factory import Factory
+from kivy.graphics import Color, Rectangle
 from kivy.properties import ListProperty, ObjectProperty, StringProperty
+from kivy.uix.widget import Widget
 
 import scanner_core as core
 
@@ -132,8 +134,51 @@ KV = '''
             text: "COPY WG"
             on_release: app.copy_wireguard(root.server)
         SecondaryButton:
+            text: "QR"
+            on_release: app.show_qr(root.server)
+        SecondaryButton:
             text: "SAVE .CONF"
             on_release: app.save_wireguard(root.server)
+
+<QRPopup@ModalView>:
+    size_hint: 0.94, 0.92
+    background_color: 0, 0, 0, 0.6
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(14)
+        spacing: dp(8)
+        canvas.before:
+            Color:
+                rgba: 0.12, 0.12, 0.15, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [15]
+        Label:
+            id: qr_title
+            markup: True
+            font_size: '15sp'
+            size_hint_y: None
+            height: dp(40)
+            text_size: self.size
+            halign: 'center'
+            valign: 'middle'
+        QRView:
+            id: qr
+        Label:
+            id: qr_hint
+            font_size: '11sp'
+            color: 0.7, 0.72, 0.75, 1
+            size_hint_y: None
+            height: dp(44)
+            text_size: self.size
+            halign: 'center'
+            valign: 'middle'
+        SecondaryButton:
+            text: "CLOSE"
+            size_hint_y: None
+            height: dp(40)
+            on_release: root.dismiss()
 
 <AboutPopup@ModalView>:
     size_hint: 0.85, 0.35
@@ -354,24 +399,31 @@ BoxLayout:
         valign: 'middle'
 
     # WireGuard export
+    TextInput:
+        id: wg_key
+        hint_text: "WireGuard private key"
+        password: True
+        multiline: False
+        font_size: '13sp'
+        size_hint_y: None
+        height: dp(44)
+        on_text: app.refresh_key_scan_button()
     BoxLayout:
         size_hint_y: None
         height: dp(44)
         spacing: dp(8)
-        TextInput:
-            id: wg_key
-            hint_text: "WireGuard private key"
-            password: True
-            multiline: False
-            font_size: '13sp'
-            size_hint_x: 0.55
-            on_text: app.refresh_key_scan_button()
         ProtonButton:
             id: btn_export
             text: "EXPORT TOP 15 (.conf)"
             font_size: '12sp'
             disabled: True
             on_release: app.export_top()
+        ProtonButton:
+            id: btn_links
+            text: "COPY wg:// LINKS"
+            font_size: '12sp'
+            disabled: True
+            on_release: app.copy_wg_links()
 
     # AmneziaWG obfuscation: filled with defaults; clear the box for plain WireGuard
     TextInput:
@@ -404,6 +456,37 @@ def ping_rgba(ms):
     if ms < PING_OK_MS:
         return AMBER
     return RED
+
+
+class QRView(Widget):
+    matrix = ObjectProperty(None, allownone=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(matrix=self.redraw, pos=self.redraw, size=self.redraw)
+
+    def redraw(self, *_):
+        self.canvas.clear()
+        if not self.matrix:
+            return
+        modules = len(self.matrix)
+        # اندازه‌ی مربع‌ها عدد صحیح پیکسل است تا لبه‌ها تار نشوند و دوربین بهتر بخواند
+        cell = max(1, int(min(self.width, self.height) // modules))
+        side = cell * modules
+        x0 = int(self.x + (self.width - side) / 2)
+        y0 = int(self.y + (self.height - side) / 2)
+        with self.canvas:
+            Color(1, 1, 1, 1)
+            Rectangle(pos=(x0, y0), size=(side, side))
+            Color(0, 0, 0, 1)
+            for row_index, row in enumerate(self.matrix):
+                for col_index, dark in enumerate(row):
+                    if dark:
+                        Rectangle(pos=(x0 + col_index * cell, y0 + (modules - 1 - row_index) * cell),
+                                  size=(cell, cell))
+
+
+Factory.register('QRView', cls=QRView)
 
 
 class ResultCard(BoxLayout):
@@ -528,6 +611,7 @@ class ProtonScannerApp(App):
         ids.btn_next.disabled = busy or remaining <= 0
         ids.btn_reset.disabled = busy or not self.last_valid
         ids.btn_export.disabled = busy or not self.last_valid
+        ids.btn_links.disabled = busy or not self.last_valid
         ids.wg_key.disabled = busy
         ids.awg_params.disabled = busy
 
@@ -574,10 +658,10 @@ class ProtonScannerApp(App):
             return
         ids = self.root.ids
         servers = core.extract_servers(self.raw_data)
-        self.all_filtered = core.filter_by_tier(servers, self.mode)
+        self.all_filtered = core.dedupe_endpoints(core.filter_by_tier(servers, self.mode))
         self.index = core.build_region_index(self.all_filtered)
 
-        ids.lbl_db.text = f"{len(self.all_filtered)} {self.mode.upper()} servers"
+        ids.lbl_db.text = f"{len(self.all_filtered)} {self.mode.upper()} hosts"
         ids.spin_continent.values = [core.ALL_CONTINENTS] + core.continent_choices(self.index)
         ids.spin_continent.text = core.ALL_CONTINENTS
         self.on_continent_change()
@@ -697,6 +781,78 @@ class ProtonScannerApp(App):
 
         self.refresh_controls(remaining=remaining)
 
+    def _require_key(self):
+        """کلید خصوصی معتبر را برمی‌گرداند؛ اگر نباشد پیام می‌دهد و None برمی‌گرداند."""
+        try:
+            key, obfuscation = self.wireguard_options()
+        except ValueError as e:
+            self.set_status(f"[color=ff3333]❌ {e}[/color]")
+            return None
+        if not key:
+            self.set_status("[color=ffcc00]⚠️ Enter your WireGuard private key first.[/color]")
+            return None
+        return key, obfuscation
+
+    def show_qr(self, server):
+        required = self._require_key()
+        if required is None:
+            return
+        key, obfuscation = required
+        if not core.qr_available():
+            self.set_status("[color=ff3333]❌ QR needs the qrcode package, which this build does not include.[/color]")
+            return
+        try:
+            conf = core.build_wireguard_config(server, key, obfuscation=obfuscation)
+            matrix = core.qr_matrix(conf)
+        except (ValueError, RuntimeError) as e:
+            self.set_status(f"[color=ff3333]❌ {e}[/color]")
+            return
+        aliases = server.get('aliases') or []
+        title = f"[b]{server['name']}[/b]"
+        if aliases:
+            title += f"  (same host: {', '.join(aliases)})"
+        popup = Factory.QRPopup()
+        popup.ids.qr_title.text = title
+        popup.ids.qr_hint.text = ("In the WireGuard app choose Add tunnel > Create from QR code, "
+                                  "then point the camera at this screen. The code contains your private key.")
+        popup.ids.qr.matrix = matrix
+        popup.open()
+
+    def copy_wg_links(self):
+        required = self._require_key()
+        if required is None:
+            return
+        key, obfuscation = required
+        ids = self.root.ids
+        continent = ids.spin_continent.text
+        country = core.cc_from_label(ids.spin_country.text)
+        active_map = self.index.active_map if self.index else {}
+        servers = core.filter_servers(self.last_valid, continent, country, active_map)
+
+        links, skipped = [], []
+        for server in servers:
+            try:
+                conf = core.build_wireguard_config(server, key, obfuscation=obfuscation)
+            except ValueError:
+                skipped.append(server['name'])
+                continue
+            links.append(core.config_to_wg_link(conf))
+        if not links:
+            self.set_status("[color=ffcc00]⚠️ No scanned servers in this scope. Scan first.[/color]")
+            return
+
+        Clipboard.copy('\n'.join(links))
+        if country != core.ALL_COUNTRIES:
+            scope = ids.spin_country.text
+        elif continent != core.ALL_CONTINENTS:
+            scope = continent
+        else:
+            scope = 'all scanned servers'
+        msg = f"✅ Copied {len(links)} wg:// links for {scope}"
+        if skipped:
+            msg += f" ({len(skipped)} skipped: no WG key)"
+        self.set_status(f"[color=10B981]{msg}[/color]")
+
     def key_accepted(self, srv):
         try:
             return core.verify_handshake(srv, self.scan_key)
@@ -708,8 +864,9 @@ class ProtonScannerApp(App):
         grid = self.root.ids.results_grid
         grid.clear_widgets()
         for srv in servers:
+            aliases = srv.get('aliases') or []
             card = ResultCard(
-                name_text=srv['name'],
+                name_text=srv['name'] + (f" (+{len(aliases)})" if aliases else ''),
                 ip_text=srv['ip'],
                 ping_text=str(srv['ping']),
                 proto_text=srv['proto'] + (' • key OK' if srv.get('verified') else ''),
