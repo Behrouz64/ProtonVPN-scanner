@@ -355,22 +355,6 @@ BoxLayout:
             text: "2. START SCAN (500)"
             disabled: True
             on_release: app.start_scan()
-        ProtonButton:
-            id: btn_scan_key
-            text: "SCAN WITH KEY"
-            disabled: True
-            background_color: 0.42, 0.16, 0.84, 1
-            on_release: app.start_scan(verify_key=True)
-    Label:
-        id: lbl_scan_hint
-        text: "START SCAN: ping only.  SCAN WITH KEY: also checks that each server accepts your private key (enter it below)."
-        color: 0.55, 0.6, 0.6, 1
-        font_size: '11sp'
-        size_hint_y: None
-        height: dp(30)
-        text_size: self.size
-        halign: 'left'
-        valign: 'middle'
     BoxLayout:
         size_hint_y: None
         height: dp(40)
@@ -414,7 +398,6 @@ BoxLayout:
         font_size: '13sp'
         size_hint_y: None
         height: dp(44)
-        on_text: app.refresh_key_scan_button()
     BoxLayout:
         size_hint_y: None
         height: dp(44)
@@ -513,9 +496,7 @@ class ProtonScannerApp(App):
         self.mode = 'free'
         self.offset = 0
         self.scan_selection = (core.ALL_CONTINENTS, core.ALL_COUNTRIES)
-        self.scan_key = ''
         self.last_valid = []
-        self.busy = False
         self.root = Builder.load_string(KV)
         self.root.ids.awg_params.text = core.format_obfuscation(core.DEFAULT_OBFUSCATION)
         return self.root
@@ -596,17 +577,11 @@ class ProtonScannerApp(App):
         prog.max = max(total, 1)
         prog.value = done
 
-    def refresh_key_scan_button(self):
-        ids = self.root.ids
-        key_ok = core.is_valid_wg_key(ids.wg_key.text.strip())
-        ids.btn_scan_key.disabled = self.busy or self.index is None or not key_ok
-
     @mainthread
     def refresh_controls(self, busy=False, remaining=0):
         """وضعیت دکمه‌ها را بر اساس «در حال اسکن بودن» و «دیتابیس لود شده» تنظیم می‌کند."""
         ids = self.root.ids
         loaded = self.index is not None
-        self.busy = busy
         ids.btn_load.disabled = busy
         ids.btn_free.disabled = busy or not loaded
         ids.btn_premium.disabled = busy or not loaded
@@ -614,7 +589,6 @@ class ProtonScannerApp(App):
         ids.spin_continent.disabled = busy or not loaded
         ids.spin_country.disabled = busy or not loaded
         ids.btn_scan.disabled = busy or not loaded
-        self.refresh_key_scan_button()
         ids.btn_next.disabled = busy or remaining <= 0
         ids.btn_reset.disabled = busy or not self.last_valid
         ids.btn_export.disabled = busy or not self.last_valid
@@ -683,20 +657,7 @@ class ProtonScannerApp(App):
     # =========================================================
     # اسکن
     # =========================================================
-    def start_scan(self, verify_key=False):
-        # START SCAN فقط پینگ می‌گیرد؛ SCAN WITH KEY علاوه بر آن handshake را با کلید بررسی می‌کند.
-        # این بررسی همیشه WireGuard ساده است و کادر AmneziaWG در آن استفاده نمی‌شود.
-        key = ''
-        if verify_key:
-            key = self.root.ids.wg_key.text.strip()
-            if not core.is_valid_wg_key(key):
-                self.set_status("[color=ff3333]❌ Enter a valid WireGuard private key first.[/color]")
-                return
-            if not core.handshake_supported():
-                self.set_status("[color=ff3333]❌ Key check needs the cryptography package, which this build does not include.[/color]")
-                return
-        self.scan_key = key
-
+    def start_scan(self):
         ids = self.root.ids
         self.scan_selection = (ids.spin_continent.text, core.cc_from_label(ids.spin_country.text))
         self.offset = 0
@@ -739,18 +700,15 @@ class ProtonScannerApp(App):
             return
 
         total = len(batch)
-        verify_key = bool(self.scan_key)
         done_lock = threading.Lock()
         done = 0
-        pinged = 0
         alive = []
 
         self.set_progress(0, total)
-        suffix = " and checking your key" if verify_key else ""
-        self.set_status(f"[color=ffcc00]🚀 Scanning {total} servers{suffix} (turn VPN OFF!)[/color]")
+        self.set_status(f"[color=ffcc00]🚀 Scanning {total} servers (turn VPN OFF!)[/color]")
 
         def check_server(srv):
-            nonlocal done, pinged
+            nonlocal done
             ping, proto = core.smart_ping(srv['ip'])
             with done_lock:
                 done += 1
@@ -761,14 +719,7 @@ class ProtonScannerApp(App):
             if ping is None or ping < core.MIN_PLAUSIBLE_PING_MS:
                 return
             with done_lock:
-                pinged += 1
-            verified = False
-            if verify_key:
-                verified = self.key_accepted(srv)
-                if not verified:
-                    return
-            with done_lock:
-                alive.append({**srv, 'ping': ping, 'proto': proto, 'verified': verified})
+                alive.append({**srv, 'ping': ping, 'proto': proto})
 
         with ThreadPoolExecutor(max_workers=core.SCAN_WORKERS) as ex:
             list(ex.map(check_server, batch))
@@ -777,12 +728,7 @@ class ProtonScannerApp(App):
         if alive:
             self.last_valid = core.merge_results(self.last_valid, alive)
             self.show_results(core.top_results(self.last_valid, core.TOP_N), len(self.last_valid))
-            if verify_key:
-                self.set_status(f"[color=10B981]✅ {len(alive)} of {pinged} reachable servers accept your key.[/color]")
-            else:
-                self.set_status(f"[color=10B981]✅ Found {len(alive)} alive in this batch. Showing top {core.TOP_N}.[/color]")
-        elif verify_key and pinged:
-            self.set_status(f"[color=ff3333]❌ 0 of {pinged} reachable servers accepted the key.[/color]")
+            self.set_status(f"[color=10B981]✅ Found {len(alive)} alive in this batch. Showing top {core.TOP_N}.[/color]")
         else:
             self.set_status(f"[color=ff3333]❌ All {total} servers were dead or fake (<{core.MIN_PLAUSIBLE_PING_MS}ms).[/color]")
 
@@ -871,12 +817,6 @@ class ProtonScannerApp(App):
             msg += f" ({len(skipped)} skipped: no WG key)"
         self.set_status(f"[color=10B981]{msg}[/color]")
 
-    def key_accepted(self, srv):
-        try:
-            return core.verify_handshake(srv, self.scan_key)
-        except ValueError:
-            return False
-
     @mainthread
     def show_results(self, servers, total_alive):
         grid = self.root.ids.results_grid
@@ -887,7 +827,7 @@ class ProtonScannerApp(App):
                 name_text=srv['name'] + (f" (+{len(aliases)})" if aliases else ''),
                 ip_text=srv['ip'],
                 ping_text=str(srv['ping']),
-                proto_text=srv['proto'] + (' • key OK' if srv.get('verified') else ''),
+                proto_text=srv['proto'],
                 ping_color=ping_rgba(srv["ping"]),
                 server=srv,
             )

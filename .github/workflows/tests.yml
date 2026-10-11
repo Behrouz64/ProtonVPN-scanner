@@ -20,7 +20,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests cryptography qrcode
+        run: pip install requests qrcode
 
       - name: Run tests
         run: python -m unittest -v

@@ -3,15 +3,11 @@
 این ماژول عمداً فقط از کتابخانه‌های استاندارد و requests استفاده می‌کند تا
 بتوان آن را بدون رابط گرافیکی تست کرد.
 """
-import base64
-import hashlib
-import hmac
 import ipaddress
 import json
 import os
 import re
 import socket
-import struct
 import time
 from contextlib import closing
 from urllib.parse import quote
@@ -23,13 +19,6 @@ try:
     import qrcode
 except ImportError:  # qrcode فقط برای نمایش QR لازم است
     qrcode = None
-
-try:
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
-    from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-except ImportError:  # cryptography فقط برای بررسی handshake لازم است
-    serialization = X25519PrivateKey = X25519PublicKey = ChaCha20Poly1305 = None
 
 # لینک‌های ضد فیلتر و کمکی برای دانلود از گیت‌هاب در ایران
 GITHUB_MIRRORS = [
@@ -455,126 +444,6 @@ def export_wireguard_configs(servers, directory, private_key='', obfuscation=Non
         except ValueError:
             skipped.append(server['name'])
     return written, skipped
-
-
-# ---------- بررسی handshake با کلید خصوصی ----------
-# یک پیام initiation واقعی WireGuard (Noise IKpsk2) می‌فرستد. سرور فقط وقتی جواب
-# می‌دهد که کلید عمومی ما را بشناسد؛ پس پاسخ معتبر یعنی کلید کار می‌کند.
-HANDSHAKE_TIMEOUT_S = 2.0
-_WG_CONSTRUCTION = b'Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s'
-_WG_IDENTIFIER = b'WireGuard v1 zx2c4 Jason@zx2c4.com'
-_WG_LABEL_MAC1 = b'mac1----'
-_WG_ZERO_NONCE = b'\x00' * 12
-_WG_INIT_TYPE = 1
-_WG_RESPONSE_TYPE = 2
-_WG_RESPONSE_LEN = 92
-
-
-def handshake_supported():
-    return X25519PrivateKey is not None
-
-
-def _wg_hash(*parts):
-    digest = hashlib.blake2s()
-    for part in parts:
-        digest.update(part)
-    return digest.digest()
-
-
-def _wg_kdf(chaining_key, data, count):
-    tau = hmac.new(chaining_key, data, hashlib.blake2s).digest()
-    outputs, previous = [], b''
-    for index in range(1, count + 1):
-        previous = hmac.new(tau, previous + bytes([index]), hashlib.blake2s).digest()
-        outputs.append(previous)
-    return outputs
-
-
-def _wg_public_bytes(private):
-    return private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
-
-
-def _wg_tai64n():
-    now = time.time()
-    return struct.pack('>QI', int(now) + 0x400000000000000a, int((now % 1) * 1e9))
-
-
-def build_handshake_initiation(private_key, peer_public_key, sender=None, timestamp=None):
-    """پیام initiation (۱۴۸ بایت) را می‌سازد. برمی‌گرداند (packet, sender, public_key_ما)."""
-    own_private = X25519PrivateKey.from_private_bytes(base64.b64decode(private_key))
-    own_public = _wg_public_bytes(own_private)
-    peer_public = base64.b64decode(peer_public_key)
-    peer = X25519PublicKey.from_public_bytes(peer_public)
-    ephemeral = X25519PrivateKey.generate()
-    ephemeral_public = _wg_public_bytes(ephemeral)
-
-    chaining = _wg_hash(_WG_CONSTRUCTION)
-    digest = _wg_hash(_wg_hash(chaining, _WG_IDENTIFIER), peer_public)
-    chaining = _wg_kdf(chaining, ephemeral_public, 1)[0]
-    digest = _wg_hash(digest, ephemeral_public)
-
-    chaining, key = _wg_kdf(chaining, ephemeral.exchange(peer), 2)
-    encrypted_static = ChaCha20Poly1305(key).encrypt(_WG_ZERO_NONCE, own_public, digest)
-    digest = _wg_hash(digest, encrypted_static)
-
-    chaining, key = _wg_kdf(chaining, own_private.exchange(peer), 2)
-    encrypted_timestamp = ChaCha20Poly1305(key).encrypt(
-        _WG_ZERO_NONCE, timestamp or _wg_tai64n(), digest)
-
-    sender = sender or os.urandom(4)
-    body = struct.pack('<I', _WG_INIT_TYPE) + sender + ephemeral_public + encrypted_static + encrypted_timestamp
-    mac1 = hashlib.blake2s(body, key=_wg_hash(_WG_LABEL_MAC1, peer_public), digest_size=16).digest()
-    return body + mac1 + b'\x00' * 16, sender, own_public
-
-
-def _is_handshake_response(packet, sender, mac_key):
-    if len(packet) != _WG_RESPONSE_LEN:
-        return False
-    if struct.unpack('<I', packet[:4])[0] != _WG_RESPONSE_TYPE or packet[8:12] != sender:
-        return False
-    expected = hashlib.blake2s(packet[:60], key=mac_key, digest_size=16).digest()
-    return hmac.compare_digest(packet[60:76], expected)
-
-
-def verify_handshake(server, private_key, timeout=HANDSHAKE_TIMEOUT_S, port=None):
-    """True اگر سرور با این کلید خصوصی پاسخ handshake معتبر بدهد؛ در غیر این صورت False.
-
-    False یعنی «این کلید پذیرفته نشد یا سرور در دسترس نیست»؛ این دو حالت را از هم جدا
-    نمی‌کند، چون WireGuard به کلید ناشناخته هیچ پاسخی نمی‌دهد.
-    """
-    if not handshake_supported():
-        raise RuntimeError('برای بررسی کلید بسته‌ی cryptography لازم است')
-    if not is_valid_wg_key(private_key):
-        raise ValueError('کلید خصوصی WireGuard نامعتبر است')
-    if not is_valid_wg_key(server.get('wg_key', '')):
-        raise ValueError(f"{server['name']}: کلید عمومی WireGuard نامعتبر یا موجود نیست")
-    try:
-        ipaddress.IPv4Address(server['ip'])
-    except ValueError:
-        return False
-
-    packet, sender, own_public = build_handshake_initiation(private_key, server['wg_key'])
-    mac_key = _wg_hash(_WG_LABEL_MAC1, own_public)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.sendto(packet, (server['ip'], port or WG_PORT))
-        deadline = time.monotonic() + timeout
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return False
-            sock.settimeout(remaining)
-            try:
-                response, source = sock.recvfrom(2048)
-            except socket.timeout:
-                return False
-            # فقط پاسخ از خود سرور قبول می‌شود، نه هر میزبانی که بسته‌ای برگرداند
-            if source[0] == server['ip'] and _is_handshake_response(response, sender, mac_key):
-                return True
-    except OSError:
-        return False
-    finally:
-        sock.close()
 
 
 # ---------- لینک wg:// و QR ----------
