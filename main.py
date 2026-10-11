@@ -402,6 +402,7 @@ class ProtonScannerApp(App):
         self.mode = 'free'
         self.offset = 0
         self.scan_selection = (core.ALL_CONTINENTS, core.ALL_COUNTRIES)
+        self.scan_key = ''
         self.last_valid = []
         self.root = Builder.load_string(KV)
         return self.root
@@ -562,6 +563,19 @@ class ProtonScannerApp(App):
     # اسکن
     # =========================================================
     def start_scan(self):
+        try:
+            key, obfuscation = self.wireguard_options()
+        except ValueError as e:
+            self.set_status(f"[color=ff3333]❌ {e}[/color]")
+            return
+        if key and obfuscation:
+            self.set_status("[color=ff3333]❌ Key check uses plain WireGuard. Clear the AmneziaWG params or scan without a key.[/color]")
+            return
+        if key and not core.handshake_supported():
+            self.set_status("[color=ff3333]❌ Key check needs the cryptography package, which this build does not include.[/color]")
+            return
+        self.scan_key = key
+
         ids = self.root.ids
         self.scan_selection = (ids.spin_continent.text, core.cc_from_label(ids.spin_country.text))
         self.offset = 0
@@ -604,15 +618,18 @@ class ProtonScannerApp(App):
             return
 
         total = len(batch)
+        verify_key = bool(self.scan_key)
         done_lock = threading.Lock()
         done = 0
+        pinged = 0
         alive = []
 
         self.set_progress(0, total)
-        self.set_status(f"[color=ffcc00]🚀 Scanning {total} servers (turn VPN OFF!)[/color]")
+        suffix = " and checking your key" if verify_key else ""
+        self.set_status(f"[color=ffcc00]🚀 Scanning {total} servers{suffix} (turn VPN OFF!)[/color]")
 
         def check_server(srv):
-            nonlocal done
+            nonlocal done, pinged
             ping, proto = core.smart_ping(srv['ip'])
             with done_lock:
                 done += 1
@@ -620,9 +637,17 @@ class ProtonScannerApp(App):
             if current % 10 == 0 or current == total:
                 self.set_progress(current, total)
             # فیلتر پینگ‌های تقلبی
-            if ping is not None and ping >= core.MIN_PLAUSIBLE_PING_MS:
-                with done_lock:
-                    alive.append({**srv, 'ping': ping, 'proto': proto})
+            if ping is None or ping < core.MIN_PLAUSIBLE_PING_MS:
+                return
+            with done_lock:
+                pinged += 1
+            verified = False
+            if verify_key:
+                verified = self.key_accepted(srv)
+                if not verified:
+                    return
+            with done_lock:
+                alive.append({**srv, 'ping': ping, 'proto': proto, 'verified': verified})
 
         with ThreadPoolExecutor(max_workers=core.SCAN_WORKERS) as ex:
             list(ex.map(check_server, batch))
@@ -631,11 +656,22 @@ class ProtonScannerApp(App):
         if alive:
             self.last_valid = core.merge_results(self.last_valid, alive)
             self.show_results(core.top_results(self.last_valid, core.TOP_N), len(self.last_valid))
-            self.set_status(f"[color=10B981]✅ Found {len(alive)} alive in this batch. Showing top {core.TOP_N}.[/color]")
+            if verify_key:
+                self.set_status(f"[color=10B981]✅ {len(alive)} of {pinged} reachable servers accept your key. Showing top {core.TOP_N}.[/color]")
+            else:
+                self.set_status(f"[color=10B981]✅ Found {len(alive)} alive in this batch. Showing top {core.TOP_N}.[/color]")
+        elif verify_key and pinged:
+            self.set_status(f"[color=ff3333]❌ None of {pinged} reachable servers accepted the key. Check the key, or the VPN may still be on.[/color]")
         else:
             self.set_status(f"[color=ff3333]❌ All {total} servers were dead or fake (<{core.MIN_PLAUSIBLE_PING_MS}ms).[/color]")
 
         self.refresh_controls(remaining=remaining)
+
+    def key_accepted(self, srv):
+        try:
+            return core.verify_handshake(srv, self.scan_key)
+        except ValueError:
+            return False
 
     @mainthread
     def show_results(self, servers, total_alive):
@@ -646,7 +682,7 @@ class ProtonScannerApp(App):
                 name_text=srv['name'],
                 ip_text=srv['ip'],
                 ping_text=str(srv['ping']),
-                proto_text=srv['proto'],
+                proto_text=srv['proto'] + (' • key OK' if srv.get('verified') else ''),
                 ping_color=ping_rgba(srv["ping"]),
                 server=srv,
             )
