@@ -340,6 +340,12 @@ class AmneziaWGParseTests(unittest.TestCase):
         self.assertEqual(params, {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
                                   'H1': '1', 'H2': '2', 'H3': '3', 'H4': '4'})
 
+    def test_default_block_round_trips(self):
+        text = core.format_obfuscation(core.DEFAULT_OBFUSCATION)
+        params = core.parse_obfuscation(text)
+        expected = {k: str(v) if k.startswith('H') else v for k, v in core.DEFAULT_OBFUSCATION.items()}
+        self.assertEqual(params, expected)
+
     def test_ignores_comments_and_blank_lines(self):
         text = '# Bouncing = 0\n\n' + AWG_BLOCK.replace('Jc = 4', 'Jc = 4  # junk count')
         self.assertEqual(core.parse_obfuscation(text)['Jc'], 4)

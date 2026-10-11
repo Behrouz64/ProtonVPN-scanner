@@ -303,6 +303,26 @@ BoxLayout:
             text: "2. START SCAN (500)"
             disabled: True
             on_release: app.start_scan()
+        ProtonButton:
+            id: btn_scan_key
+            text: "SCAN WITH KEY"
+            disabled: True
+            background_color: 0.42, 0.16, 0.84, 1
+            on_release: app.start_scan(verify_key=True)
+    Label:
+        id: lbl_scan_hint
+        text: "START SCAN: ping only.  SCAN WITH KEY: also checks that each server accepts your private key (enter it below)."
+        color: 0.55, 0.6, 0.6, 1
+        font_size: '11sp'
+        size_hint_y: None
+        height: dp(30)
+        text_size: self.size
+        halign: 'left'
+        valign: 'middle'
+    BoxLayout:
+        size_hint_y: None
+        height: dp(40)
+        spacing: dp(8)
         SecondaryButton:
             id: btn_next
             text: "NEXT 500"
@@ -340,11 +360,12 @@ BoxLayout:
         spacing: dp(8)
         TextInput:
             id: wg_key
-            hint_text: "WireGuard private key (optional, written to .conf)"
+            hint_text: "WireGuard private key"
             password: True
             multiline: False
             font_size: '13sp'
             size_hint_x: 0.55
+            on_text: app.refresh_key_scan_button()
         ProtonButton:
             id: btn_export
             text: "EXPORT TOP 15 (.conf)"
@@ -352,10 +373,10 @@ BoxLayout:
             disabled: True
             on_release: app.export_top()
 
-    # AmneziaWG obfuscation (optional): paste the Jc/Jmin/... lines from a working config
+    # AmneziaWG obfuscation: filled with defaults; clear the box for plain WireGuard
     TextInput:
         id: awg_params
-        hint_text: "AmneziaWG params (optional): paste Jc, Jmin, Jmax, S1, S2, H1-H4 lines"
+        hint_text: "AmneziaWG params: clear this box for plain WireGuard"
         multiline: True
         font_size: '12sp'
         size_hint_y: None
@@ -404,7 +425,9 @@ class ProtonScannerApp(App):
         self.scan_selection = (core.ALL_CONTINENTS, core.ALL_COUNTRIES)
         self.scan_key = ''
         self.last_valid = []
+        self.busy = False
         self.root = Builder.load_string(KV)
+        self.root.ids.awg_params.text = core.format_obfuscation(core.DEFAULT_OBFUSCATION)
         return self.root
 
     @property
@@ -483,11 +506,17 @@ class ProtonScannerApp(App):
         prog.max = max(total, 1)
         prog.value = done
 
+    def refresh_key_scan_button(self):
+        ids = self.root.ids
+        key_ok = core.is_valid_wg_key(ids.wg_key.text.strip())
+        ids.btn_scan_key.disabled = self.busy or self.index is None or not key_ok
+
     @mainthread
     def refresh_controls(self, busy=False, remaining=0):
         """وضعیت دکمه‌ها را بر اساس «در حال اسکن بودن» و «دیتابیس لود شده» تنظیم می‌کند."""
         ids = self.root.ids
         loaded = self.index is not None
+        self.busy = busy
         ids.btn_load.disabled = busy
         ids.btn_free.disabled = busy or not loaded
         ids.btn_premium.disabled = busy or not loaded
@@ -495,6 +524,7 @@ class ProtonScannerApp(App):
         ids.spin_continent.disabled = busy or not loaded
         ids.spin_country.disabled = busy or not loaded
         ids.btn_scan.disabled = busy or not loaded
+        self.refresh_key_scan_button()
         ids.btn_next.disabled = busy or remaining <= 0
         ids.btn_reset.disabled = busy or not self.last_valid
         ids.btn_export.disabled = busy or not self.last_valid
@@ -562,18 +592,18 @@ class ProtonScannerApp(App):
     # =========================================================
     # اسکن
     # =========================================================
-    def start_scan(self):
-        try:
-            key, obfuscation = self.wireguard_options()
-        except ValueError as e:
-            self.set_status(f"[color=ff3333]❌ {e}[/color]")
-            return
-        if key and obfuscation:
-            self.set_status("[color=ff3333]❌ Key check uses plain WireGuard. Clear the AmneziaWG params or scan without a key.[/color]")
-            return
-        if key and not core.handshake_supported():
-            self.set_status("[color=ff3333]❌ Key check needs the cryptography package, which this build does not include.[/color]")
-            return
+    def start_scan(self, verify_key=False):
+        # START SCAN فقط پینگ می‌گیرد؛ SCAN WITH KEY علاوه بر آن handshake را با کلید بررسی می‌کند.
+        # این بررسی همیشه WireGuard ساده است و کادر AmneziaWG در آن استفاده نمی‌شود.
+        key = ''
+        if verify_key:
+            key = self.root.ids.wg_key.text.strip()
+            if not core.is_valid_wg_key(key):
+                self.set_status("[color=ff3333]❌ Enter a valid WireGuard private key first.[/color]")
+                return
+            if not core.handshake_supported():
+                self.set_status("[color=ff3333]❌ Key check needs the cryptography package, which this build does not include.[/color]")
+                return
         self.scan_key = key
 
         ids = self.root.ids
@@ -657,11 +687,11 @@ class ProtonScannerApp(App):
             self.last_valid = core.merge_results(self.last_valid, alive)
             self.show_results(core.top_results(self.last_valid, core.TOP_N), len(self.last_valid))
             if verify_key:
-                self.set_status(f"[color=10B981]✅ {len(alive)} of {pinged} reachable servers accept your key. Showing top {core.TOP_N}.[/color]")
+                self.set_status(f"[color=10B981]✅ {len(alive)} of {pinged} reachable servers accept your key.[/color]")
             else:
                 self.set_status(f"[color=10B981]✅ Found {len(alive)} alive in this batch. Showing top {core.TOP_N}.[/color]")
         elif verify_key and pinged:
-            self.set_status(f"[color=ff3333]❌ None of {pinged} reachable servers accepted the key. Check the key, or the VPN may still be on.[/color]")
+            self.set_status(f"[color=ff3333]❌ 0 of {pinged} reachable servers accepted the key.[/color]")
         else:
             self.set_status(f"[color=ff3333]❌ All {total} servers were dead or fake (<{core.MIN_PLAUSIBLE_PING_MS}ms).[/color]")
 

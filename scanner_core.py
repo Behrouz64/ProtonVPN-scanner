@@ -303,6 +303,15 @@ def is_valid_wg_key(key):
 AWG_KEYS = ('Jc', 'Jmin', 'Jmax', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4')
 AWG_REQUIRED_KEYS = ('Jc', 'Jmin', 'Jmax', 'H1', 'H2', 'H3', 'H4')
 AWG_DEFAULTS = {'S1': 0, 'S2': 0}
+# مقادیر پیش‌فرض از یک کانفیگ AmneziaWG کارکرده. H1-H4 همان نوع پیام‌های استاندارد
+# WireGuard هستند و S1/S2 صفر است؛ پس تفاوت اصلی با WireGuard ساده، بسته‌های junk (Jc) است.
+DEFAULT_OBFUSCATION = {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
+                       'H1': 1, 'H2': 2, 'H3': 3, 'H4': 4}
+
+
+def format_obfuscation(params):
+    """متن قابل چسباندن برای کادر پارامترهای AmneziaWG (خروجی parse_obfuscation را برمی‌گرداند)."""
+    return '\n'.join(f'{key} = {params[key]}' for key in AWG_KEYS)
 AWG_H_KEYS = ('H1', 'H2', 'H3', 'H4')
 AWG_UINT32_MAX = 2 ** 32 - 1
 _AWG_UINT_RE = re.compile(r'\d+')
@@ -533,10 +542,11 @@ def verify_handshake(server, private_key, timeout=HANDSHAKE_TIMEOUT_S, port=None
                 return False
             sock.settimeout(remaining)
             try:
-                response, _ = sock.recvfrom(2048)
+                response, source = sock.recvfrom(2048)
             except socket.timeout:
                 return False
-            if _is_handshake_response(response, sender, mac_key):
+            # فقط پاسخ از خود سرور قبول می‌شود، نه هر میزبانی که بسته‌ای برگرداند
+            if source[0] == server['ip'] and _is_handshake_response(response, sender, mac_key):
                 return True
     except OSError:
         return False
