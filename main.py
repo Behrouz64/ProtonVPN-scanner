@@ -832,11 +832,9 @@ class ProtonScannerApp(App):
         links, skipped = [], []
         for server in servers:
             try:
-                conf = core.build_wireguard_config(server, key, obfuscation=obfuscation)
+                links.append(core.build_wg_link(server, key, obfuscation=obfuscation))
             except ValueError:
                 skipped.append(server['name'])
-                continue
-            links.append(core.config_to_wg_link(conf))
         if not links:
             self.set_status("[color=ffcc00]⚠️ No scanned servers in this scope. Scan first.[/color]")
             return

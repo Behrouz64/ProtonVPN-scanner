@@ -14,6 +14,7 @@ import socket
 import struct
 import time
 from contextlib import closing
+from urllib.parse import quote
 from dataclasses import dataclass, field
 
 import requests
@@ -56,7 +57,7 @@ PROTON_UDP_PROBE = b'\x38\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 # ---------- WireGuard ----------
 WG_PORT = 51820
 WG_ADDRESS = '10.2.0.2/32'
-WG_DNS = '10.2.0.1'
+WG_DNS = '10.2.0.1, 2a07:b944::2:1'
 WG_ALLOWED_IPS = '0.0.0.0/0, ::/0'
 PRIVATE_KEY_PLACEHOLDER = '<PASTE_YOUR_PRIVATE_KEY>'
 _WG_KEY_RE = re.compile(r'[A-Za-z0-9+/]{43}=')
@@ -169,6 +170,7 @@ def extract_servers(raw_data):
             'name': name,
             'ip': ip,
             'cc': country_code(name),
+            'city': item.get('City', '') or '',
             'free': item.get('Tier', 0) == 0,
             'wg_key': entry.get('X25519PublicKey', '') or '',
         })
@@ -303,9 +305,9 @@ def smart_ping(ip, timeout=1.5):
 
 # ---------- نتایج ----------
 def merge_results(existing, new):
-    """نتایج را بر اساس نام یکتا می‌کند؛ مقدار جدیدتر جایگزین می‌شود."""
-    merged = {s['name']: s for s in existing}
-    merged.update({s['name']: s for s in new})
+    """نتایج را بر اساس میزبان (IP + کلید) یکتا می‌کند؛ مقدار جدیدتر جایگزین می‌شود."""
+    merged = {(s['ip'], s['wg_key']): s for s in existing}
+    merged.update({(s['ip'], s['wg_key']): s for s in new})
     return list(merged.values())
 
 
@@ -576,25 +578,54 @@ def verify_handshake(server, private_key, timeout=HANDSHAKE_TIMEOUT_S, port=None
 
 
 # ---------- لینک wg:// و QR ----------
-# فرمت غیراستاندارد: «wg://» و سپس base64 (بدون padding) متن کامل کانفیگ.
-# برنامه‌های رسمی WireGuard این لینک را باز نمی‌کنند؛ برای وارد کردن از QR یا فایل استفاده کنید.
+# فرمت لینک مثل کلاینت‌هایی مثل Shadowrocket: host:port و پارامترها در query، نام در fragment.
+# کلیدهای عمومی و خصوصی با / و = داخل لینک دست نخورده می‌مانند؛ بقیه‌ی کاراکترها escape می‌شوند.
 WG_LINK_PREFIX = 'wg://'
+WG_LINK_MTU = 1280
+WG_LINK_ADDRESS = WG_ADDRESS.split('/')[0]
 
 
-def config_to_wg_link(conf_text):
-    payload = base64.urlsafe_b64encode(conf_text.encode('utf-8')).decode('ascii').rstrip('=')
-    return WG_LINK_PREFIX + payload
+def country_flag(cc):
+    code = 'GB' if cc == 'UK' else cc
+    if len(code) != 2 or not code.isalpha():
+        return ''
+    return ''.join(chr(0x1F1E6 + ord(letter) - ord('A')) for letter in code.upper())
 
 
-def wg_link_to_config(link):
-    if not link.startswith(WG_LINK_PREFIX):
-        raise ValueError('لینک با wg:// شروع نمی‌شود')
-    payload = link[len(WG_LINK_PREFIX):]
-    padded = payload + '=' * (-len(payload) % 4)
+def server_label(server):
+    """نام نمایشی لینک، مثل: 🇦🇱 Albania — Tirana (203.0.113.7)"""
+    country = CC_TO_NAME.get(server['cc'], server['cc'])
+    place = f"{country} — {server['city']}" if server.get('city') else country
+    return f"{country_flag(server['cc'])} {place} ({server['ip']})".strip()
+
+
+def build_wg_link(server, private_key, obfuscation=None):
+    """لینک wg:// یک سرور. obfuscation (خروجی parse_obfuscation) اگر باشد، AmneziaWG هم اضافه می‌شود."""
+    if not is_valid_wg_key(private_key):
+        raise ValueError('کلید خصوصی WireGuard نامعتبر است')
+    public_key = server.get('wg_key', '')
+    if not is_valid_wg_key(public_key):
+        raise ValueError(f"{server['name']}: کلید عمومی WireGuard نامعتبر یا موجود نیست")
     try:
-        return base64.urlsafe_b64decode(padded.encode('ascii')).decode('utf-8')
-    except (ValueError, UnicodeError):
-        raise ValueError('لینک wg:// نامعتبر است')
+        ipaddress.IPv4Address(server['ip'])
+    except ValueError:
+        raise ValueError(f"{server['name']}: آدرس IP سرور نامعتبر است")
+
+    params = [
+        ('publicKey', public_key),
+        ('privateKey', private_key),
+        ('ip', WG_LINK_ADDRESS),
+        ('dns', WG_DNS),
+        ('mtu', WG_LINK_MTU),
+        ('udp', 1),
+        ('keepalive', PERSISTENT_KEEPALIVE),
+    ]
+    if obfuscation:
+        values = {key.lower(): str(obfuscation[key]) for key in AWG_KEYS}
+        params += [('obfs', 'amneziawg'), ('obfsParam', json.dumps(values, separators=(',', ':')))]
+
+    query = '&'.join(f"{key}={quote(str(value), safe='/')}" for key, value in params)
+    return f"{WG_LINK_PREFIX}{server['ip']}:{WG_PORT}?{query}#{quote(server_label(server), safe='')}"
 
 
 def qr_available():

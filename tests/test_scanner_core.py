@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from unittest import mock
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 import requests
 
@@ -151,13 +152,21 @@ class ResultsTests(unittest.TestCase):
         top = core.top_results(servers, limit=2)
         self.assertEqual([s['ping'] for s in top], [110, 120])
 
-    def test_merge_results_dedups_by_name_keeping_newest(self):
-        old = [make_server('US#1', ping=200)]
-        new = [make_server('US#1', ping=150), make_server('DE#1', ping=180)]
+    def test_merge_results_keeps_newest_for_same_host(self):
+        old = [make_server('US#1', ip='10.1.1.1', ping=200)]
+        new = [make_server('US#1', ip='10.1.1.1', ping=150), make_server('DE#1', ip='10.1.1.2', ping=180)]
         merged = core.merge_results(old, new)
         self.assertEqual(len(merged), 2)
         by_name = {s['name']: s for s in merged}
         self.assertEqual(by_name['US#1']['ping'], 150)
+
+    def test_merge_results_does_not_duplicate_one_host_under_two_names(self):
+        # حالت باگ: همان میزبان از حالت FREE با نام RO-FREE#13 و از ALL با نام RO#9 آمده
+        old = [make_server('RO-FREE#13', ip='10.9.9.9', ping=150)]
+        new = [make_server('RO#9', ip='10.9.9.9', ping=160)]
+        merged = core.merge_results(old, new)
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]['name'], 'RO#9')
 
 
 class WireGuardKeyTests(unittest.TestCase):
@@ -489,25 +498,66 @@ class DedupeEndpointTests(unittest.TestCase):
         self.assertEqual([s['name'] for s in paid], ['RO#2'])
 
 
+def parse_wg_link(link):
+    """تجزیه‌ی لینک wg:// به همان شکلی که کلاینت‌ها می‌خوانند (query + fragment)."""
+    parts = urlsplit(link)
+    params = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if 'obfsParam' in params:
+        params['obfsParam'] = json.loads(params['obfsParam'])
+    return {'host': parts.hostname, 'port': parts.port, 'label': unquote(parts.fragment), **params}
+
+
 class WgLinkTests(unittest.TestCase):
-    def test_round_trip_restores_config_exactly(self):
-        conf = build_config_text()
-        link = core.config_to_wg_link(conf)
-        self.assertTrue(link.startswith('wg://'))
-        self.assertNotIn('=', link)
-        self.assertEqual(core.wg_link_to_config(link), conf)
+    def setUp(self):
+        self.server = {'name': 'AL#48', 'ip': '203.0.113.7', 'cc': 'AL', 'city': 'Tirana', 'wg_key': VALID_KEY_2}
+        self.params = core.parse_obfuscation(core.format_obfuscation(core.DEFAULT_OBFUSCATION))
 
-    def test_round_trip_handles_unicode_and_all_padding_lengths(self):
-        for text in ('a', 'ab', 'abc', 'abcd', 'کلید ✓'):
-            self.assertEqual(core.wg_link_to_config(core.config_to_wg_link(text)), text)
+    def test_link_has_endpoint_and_key_parameters(self):
+        link = core.build_wg_link(self.server, VALID_KEY, obfuscation=self.params)
+        self.assertTrue(link.startswith('wg://203.0.113.7:51820?'))
+        info = parse_wg_link(link)
+        self.assertEqual(info['publicKey'], VALID_KEY_2)
+        self.assertEqual(info['privateKey'], VALID_KEY)
+        self.assertEqual(info['ip'], '10.2.0.2')
+        self.assertEqual(info['dns'], core.WG_DNS)
+        self.assertEqual((info['mtu'], info['udp'], info['keepalive']), ('1280', '1', '25'))
 
-    def test_wrong_prefix_is_rejected(self):
+    def test_obfuscation_is_sent_as_json_with_lowercase_keys(self):
+        info = parse_wg_link(core.build_wg_link(self.server, VALID_KEY, obfuscation=self.params))
+        self.assertEqual(info['obfs'], 'amneziawg')
+        self.assertEqual(info['obfsParam'], {'jc': '4', 'jmin': '50', 'jmax': '1000', 's1': '0', 's2': '0',
+                                             'h1': '1', 'h2': '2', 'h3': '3', 'h4': '4'})
+
+    def test_plain_wireguard_link_has_no_obfs(self):
+        info = parse_wg_link(core.build_wg_link(self.server, VALID_KEY))
+        self.assertNotIn('obfs', info)
+        self.assertNotIn('obfsParam', info)
+
+    def test_label_has_flag_country_city_and_ip(self):
+        info = parse_wg_link(core.build_wg_link(self.server, VALID_KEY))
+        self.assertEqual(info['label'], '\U0001F1E6\U0001F1F1 Albania — Tirana (203.0.113.7)')
+
+    def test_uk_uses_gb_flag(self):
+        self.assertEqual(core.country_flag('UK'), '\U0001F1EC\U0001F1E7')
+        self.assertEqual(core.country_flag('UNK'), '')
+
+    def test_label_without_city_uses_country_only(self):
+        server = {**self.server, 'city': ''}
+        self.assertEqual(core.server_label(server), '\U0001F1E6\U0001F1F1 Albania (203.0.113.7)')
+
+    def test_keys_keep_slash_and_encode_plus_and_equals(self):
+        key = '+/+/Pvv/vz77/78++/+/Pvv/vz77/78++/+/Pvv/vz4='
+        link = core.build_wg_link(self.server, key)
+        self.assertIn('privateKey=' + key.replace('+', '%2B').replace('=', '%3D'), link)
+        self.assertEqual(parse_wg_link(link)['privateKey'], key)
+
+    def test_invalid_inputs_are_rejected(self):
         with self.assertRaises(ValueError):
-            core.wg_link_to_config('https://example.com/abc')
-
-    def test_invalid_payload_is_rejected(self):
+            core.build_wg_link(self.server, 'short')
         with self.assertRaises(ValueError):
-            core.wg_link_to_config('wg://!!!not-base64!!!')
+            core.build_wg_link({**self.server, 'wg_key': ''}, VALID_KEY)
+        with self.assertRaises(ValueError):
+            core.build_wg_link({**self.server, 'ip': 'not-an-ip'}, VALID_KEY)
 
 
 @unittest.skipUnless(core.qr_available(), 'qrcode is not installed')
