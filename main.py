@@ -5,6 +5,7 @@
 """
 import asyncio
 import os
+import traceback
 
 import flet as ft
 
@@ -97,15 +98,23 @@ class ScannerApp:
             pass
 
         page.services.extend([self.clipboard, self.prefs, self.launcher, self.storage])
-        await self.resolve_support_dir()
-        self.settings = app_settings.load_settings(await self.read_settings())
-        self.lang = self.settings['language']
+        # اول رابط با تنظیمات پیش‌فرض ساخته می‌شود تا صفحه‌ی خالی نماند؛ تنظیمات ذخیره‌شده بعداً می‌آید
         self.build()
         page.update()
+        await self.load_saved_state()
+
+    async def load_saved_state(self):
+        await self.resolve_support_dir()
+        saved = app_settings.load_settings(await self.read_settings())
+        if saved != self.settings:
+            self.settings = saved
+            self.lang = saved['language']
+            self.build()
+            self.page.update()
 
     async def resolve_support_dir(self):
         try:
-            path = await self.storage.get_application_support_directory()
+            path = await asyncio.wait_for(self.storage.get_application_support_directory(), timeout=5)
             if path:
                 self.support_dir = path
         except Exception:
@@ -113,7 +122,7 @@ class ScannerApp:
 
     async def read_settings(self):
         try:
-            return await self.prefs.get(SETTINGS_KEY)
+            return await asyncio.wait_for(self.prefs.get(SETTINGS_KEY), timeout=5)
         except Exception:
             return None
 
@@ -767,8 +776,15 @@ class ScannerApp:
 
 async def main(page: ft.Page):
     app = ScannerApp(page)
-    await app.start()
+    try:
+        await app.start()
+    except Exception:  # اگر راه‌اندازی شکست خورد، صفحه‌ی خالی نماند و خطا نشان داده شود
+        page.controls.clear()
+        page.add(ft.Text('Startup error:\n' + traceback.format_exc()[-1500:], color=ui.DANGER, selectable=True))
+        page.update()
 
 
-if __name__ == '__main__':
-    ft.run(main, assets_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets'))
+# ft.run بدون شرط __name__ اجرا می‌شود: روی موبایل ماژول با نام دیگری بارگذاری می‌شود
+# و با شرط قبلی هیچ رابطی ساخته نمی‌شد (صفحه‌ی سیاه).
+ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets') if '__file__' in globals() else 'assets'
+ft.run(main, assets_dir=ASSETS_DIR)
