@@ -22,6 +22,7 @@ CONFIG_ERROR_KEYS = {
     'bad_private_key': 'err_key_invalid',
     'key_file_exists': 'err_key_file_exists',
 }
+QR_HINT_KEYS = {'config': 'qr_hint_config', 'link': 'qr_hint_link'}
 AWG_ERROR_KEYS = {'number': 'err_awg_number', 'range': 'err_awg_range', 'order': 'err_awg_order'}
 TAB_SCAN, TAB_SERVERS, TAB_SETTINGS, TAB_GUIDE = range(4)
 
@@ -610,23 +611,43 @@ class ScannerApp:
         key = self.key_for(required=True)
         if not core.qr_available():
             raise UserError('err_qr_package')
-        conf = core.build_wireguard_config(server, key, obfuscation=self.obfuscation())
-        matrix = core.qr_matrix(conf)
+        obfuscation = self.obfuscation()
+        # هر دو حالت همین‌جا ساخته می‌شوند تا خطای سرور قبل از باز شدن پنجره دیده شود
+        payloads = {
+            'config': core.build_wireguard_config(server, key, obfuscation=obfuscation),
+            'link': core.build_wg_link(server, key, obfuscation=obfuscation),
+        }
+        qr_box = ft.Container(bgcolor=ft.Colors.WHITE, border_radius=8)
+        hint = ui.body_text('', color=ui.TEXT_MUTED, size=12)
+
+        def show_mode(mode):
+            qr_box.content = ui.qr_canvas(core.qr_matrix(payloads[mode]))
+            hint.value = self.t(QR_HINT_KEYS[mode])
+
+        async def on_mode(e):
+            show_mode(self.selected_value(e.control))
+            self.page.update()
+
+        show_mode('config')
+        mode_switch = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value='config', label=ft.Text(self.t('qr_mode_config'))),
+                ft.Segment(value='link', label=ft.Text(self.t('qr_mode_link'))),
+            ],
+            selected=['config'],
+            on_change=on_mode,
+        )
+        controls = [mode_switch, qr_box, hint]
         aliases = server.get('aliases') or []
-        hint = self.t('qr_hint')
         if aliases:
-            hint = self.t('qr_same_host', aliases=', '.join(aliases)) + '\n' + hint
+            controls.insert(0, ui.body_text(self.t('qr_same_host', aliases=', '.join(aliases)),
+                                            color=ui.TEXT_MUTED, size=12))
         dialog = ft.AlertDialog(
             title=ft.Text(self.t('qr_title', name=server['name']), size=16, weight=ft.FontWeight.BOLD),
             content=ft.Container(
-                width=ui.QR_SIDE_PX + 20,
-                content=ft.Column(
-                    [
-                        ft.Container(content=ui.qr_canvas(matrix), bgcolor=ft.Colors.WHITE, padding=0),
-                        ui.body_text(hint, color=ui.TEXT_MUTED, size=12),
-                    ],
-                    tight=True, spacing=12, horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
+                width=ui.QR_SIDE_PX + 40,
+                content=ft.Column(controls, tight=True, spacing=12,
+                                  horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             ),
             actions=[ui.secondary_button(self.t('close'), lambda e: self.page.pop_dialog(), expand=False)],
             bgcolor=ui.SURFACE,

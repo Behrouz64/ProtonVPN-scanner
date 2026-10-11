@@ -82,8 +82,10 @@ STRINGS = {
 
         'qr_title': 'QR code · {name}',
         'qr_same_host': 'Same host, other names: {aliases}',
-        'qr_hint': 'In the WireGuard app choose Add tunnel, then Create from QR code, '
-                   'and point the camera at this screen. The code contains your private key.',
+        'qr_mode_config': 'Config',
+        'qr_mode_link': 'wg:// link',
+        'qr_hint_config': 'Scan with AmneziaVPN on Android, or another app that reads WireGuard or AmneziaWG configs. The code contains your private key.',
+        'qr_hint_link': 'Scan with an app that reads wg:// links, such as Shadowrocket. The code contains your private key.',
         'close': 'Close',
 
         'settings_language': 'Language',
@@ -176,8 +178,10 @@ STRINGS = {
 
         'qr_title': 'کد QR · {name}',
         'qr_same_host': 'همان میزبان با نام‌های دیگر: {aliases}',
-        'qr_hint': 'در برنامه‌ی WireGuard گزینه‌ی Add tunnel و بعد Create from QR code را بزنید '
-                   'و دوربین را به این صفحه بگیرید. این کد کلید خصوصی شما را دارد.',
+        'qr_mode_config': 'کانفیگ',
+        'qr_mode_link': 'لینک wg://',
+        'qr_hint_config': 'با AmneziaVPN روی اندروید، یا برنامه‌ای که کانفیگ WireGuard یا AmneziaWG را می‌خواند، اسکن کنید. این کد کلید خصوصی شما را دارد.',
+        'qr_hint_link': 'با برنامه‌ای اسکن کنید که لینک wg:// را می‌خواند، مثل Shadowrocket. این کد کلید خصوصی شما را دارد.',
         'close': 'بستن',
 
         'settings_language': 'زبان',
