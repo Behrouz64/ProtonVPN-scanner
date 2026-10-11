@@ -50,6 +50,7 @@ GUIDE = {
         {
             'title': 'تب سرورها و دکمه‌های هر کارت',
             'blocks': [
+                ('p', 'بعد از اسکن، کارت سبز بالای تب اسکن می‌گوید چند سرور فعال پیدا شده است. با دکمه‌ی «مشاهده نتایج در تب سرورها» یا با باز کردن تب سرورها در پایین صفحه، سرورهای برتر را ببینید. تا وقتی این تب را باز نکرده‌اید، کنار نام آن تعداد نتیجه‌ها هم نشان داده می‌شود، مثلاً «سرورها (۶۸)».'),
                 ('p', 'تب سرورها نتیجه‌ی اسکن را نشان می‌دهد. هر سرور یک کارت جدا دارد. در بالای این تب، کادر «کلید خصوصی WireGuard» (WireGuard private key) قرار دارد و زیر آن دو دکمه هست: «خروجی ۱۵ سرور برتر (.conf)» (Export top 15 (.conf)) و «کپی لینک‌های wg://» (Copy wg:// links). این دو دکمه در بخش بعد توضیح داده شده‌اند.'),
                 ('p', 'کلید خصوصی (private key) یک رمز مخفی است و مثل رمز عبور عمل می‌کند. در بخش کلید، این یادداشت نوشته شده: «فقط در همین پنجره نگه داشته می‌شود. فقط داخل فایل‌های .conf که ذخیره یا خروجی می‌گیرید نوشته می‌شود.»'),
                 ('ul', [
@@ -84,10 +85,13 @@ GUIDE = {
                 ('ul', [
                     'Shadowrocket: برای iPhone و iPad، از App Store. لینک‌های wg:// را می‌خواند و پولی است. فرمت این لینک‌ها با همین برنامه آزمایش شده است.',
                     'AmneziaVPN: برنامه‌ی اصلی کلاینت Amnezia و متن‌باز است. برای ویندوز، macOS، لینوکس، اندروید و iPhone منتشر شده است. فایل .conf را از SAVE .CONF یا EXPORT بگیرید و روش وارد کردن آن را در خود برنامه بررسی کنید.',
+                    'Hiddify: کلاینت متن‌باز و رایگان برای Android، Windows، macOS، Linux، iPhone و iPad. در تست روی Android، لینک wg:// پذیرفته شد. نسخه‌ی تازه را از صفحه‌ی Releases در GitHub بگیرید.',
                 ]),
                 ('link', ('Shadowrocket در App Store', 'https://apps.apple.com/app/shadowrocket/id932747118')),
                 ('link', ('AmneziaVPN: وب‌سایت', 'https://amnezia.org/')),
                 ('link', ('AmneziaVPN: کد منبع در GitHub', 'https://github.com/amnezia-vpn/amnezia-client')),
+                ('link', ('Hiddify: Releases در GitHub (Android، Windows، macOS، Linux)', 'https://github.com/hiddify/hiddify-app/releases')),
+                ('link', ('Hiddify Proxy & VPN در App Store (iPhone و iPad)', 'https://apps.apple.com/app/id6596777532')),
                 ('p', 'دو کلاینت بتا هم با دعوت TestFlight در دسترس‌اند. برای نصب آن‌ها باید برنامه‌ی TestFlight روی iPhone یا iPad باشد. ممکن است ظرفیت بتا پر باشد یا بعد از مدتی منقضی شود.'),
                 ('link', ('CoreForge (TestFlight)', 'https://testflight.apple.com/join/YqwS1qtj')),
                 ('link', ('ForgeCore (TestFlight)', 'https://testflight.apple.com/join/Z4rvxEwk')),
@@ -231,6 +235,7 @@ GUIDE = {
         {
             'title': 'The Servers tab and the buttons on each server card',
             'blocks': [
+                ('p', 'After a scan, a green card at the top of the Scan tab says how many servers are alive. Press "View results in Servers", or open the Servers tab at the bottom, to see the best servers. Until you open the Servers tab, its name also shows the number of results, for example "Servers (68)".'),
                 ('p', 'The Servers tab shows the results of your scan. Each server has its own card. At the top of the tab is the WireGuard private key field. Below it are two buttons: Export top 15 (.conf) and Copy wg:// links. These two buttons are explained in the next section.'),
                 ('p', 'The WireGuard private key is a secret, like a password. The field has this note: Kept only in this window. Never saved or shared by the app.'),
                 ('ul', [
@@ -265,10 +270,13 @@ GUIDE = {
                 ('ul', [
                     'Shadowrocket: for iPhone and iPad, from the App Store. It reads wg:// links and it is a paid app. The wg:// format used here was tested with this app.',
                     'AmneziaVPN: the main Amnezia client. It is open source and available for Windows, macOS, Linux, Android and iPhone. Take the .conf file from SAVE .CONF or EXPORT, and check the import steps inside the app.',
+                    'Hiddify: a free, open-source client for Android, Windows, macOS, Linux, iPhone and iPad. In a test on Android, a wg:// link was accepted. Get the latest build from the Releases page on GitHub.',
                 ]),
                 ('link', ('Shadowrocket on the App Store', 'https://apps.apple.com/app/shadowrocket/id932747118')),
                 ('link', ('AmneziaVPN website', 'https://amnezia.org/')),
                 ('link', ('AmneziaVPN source code on GitHub', 'https://github.com/amnezia-vpn/amnezia-client')),
+                ('link', ('Hiddify: Releases on GitHub (Android, Windows, macOS, Linux)', 'https://github.com/hiddify/hiddify-app/releases')),
+                ('link', ('Hiddify Proxy & VPN on the App Store (iPhone and iPad)', 'https://apps.apple.com/app/id6596777532')),
                 ('p', 'Two beta clients are also available by TestFlight invitation. To install them, you need the TestFlight app on your iPhone or iPad. A beta may be full or may expire after a while.'),
                 ('link', ('CoreForge (TestFlight)', 'https://testflight.apple.com/join/YqwS1qtj')),
                 ('link', ('ForgeCore (TestFlight)', 'https://testflight.apple.com/join/Z4rvxEwk')),

@@ -128,6 +128,8 @@ class ScannerApp:
         page = self.page
         page.rtl = self.lang == 'fa'
         page.theme = ui.theme()
+        self.servers_destination = ft.NavigationBarDestination(
+            icon=ft.Icons.LIST_ALT, label=self.t('nav_servers'))
         self.scan_tab = self.build_scan_tab()
         self.servers_tab = self.build_servers_tab()
         self.settings_tab = self.build_settings_tab()
@@ -141,7 +143,7 @@ class ScannerApp:
             indicator_color=ui.PRIMARY,
             destinations=[
                 ft.NavigationBarDestination(icon=ft.Icons.RADAR, label=self.t('nav_scan')),
-                ft.NavigationBarDestination(icon=ft.Icons.LIST_ALT, label=self.t('nav_servers')),
+                self.servers_destination,
                 ft.NavigationBarDestination(icon=ft.Icons.TUNE, label=self.t('nav_settings')),
                 ft.NavigationBarDestination(icon=ft.Icons.MENU_BOOK, label=self.t('nav_guide')),
             ],
@@ -210,8 +212,20 @@ class ScannerApp:
         self.progress_bar = ft.ProgressBar(value=0, color=ui.PRIMARY, bgcolor=ui.SURFACE_HIGH,
                                            border_radius=4)
         self.status_text = ft.Text('', size=13, weight=ft.FontWeight.BOLD)
+        self.result_text = ui.body_text('', color=ui.TEXT, size=14, weight=ft.FontWeight.BOLD)
+        self.result_button = ui.primary_button(t('btn_view_results'), self.on_view_results,
+                                               icon=ft.Icons.LIST_ALT)
+        self.result_banner = ft.Container(
+            content=ft.Column([self.result_text, self.result_button], spacing=10),
+            visible=False,
+            bgcolor=ui.blend(ui.SUCCESS, ui.SURFACE, 0.18),
+            border=ft.Border.all(1, ui.blend(ui.SUCCESS, ui.SURFACE, 0.6)),
+            border_radius=16,
+            padding=16,
+        )
         return ft.Column(
             [
+                self.result_banner,
                 ui.card(ui.heading(t('step_database')),
                         ft.Row([self.btn_load], spacing=8),
                         self.db_text),
@@ -335,6 +349,14 @@ class ScannerApp:
         self.btn_scan.disabled = busy or not loaded
         self.btn_next.disabled = busy or self.remaining <= 0
         self.btn_reset.disabled = busy or not (has_results or self.remaining or self.offset)
+        self.result_banner.visible = has_results
+        if has_results:
+            self.result_text.value = self.t('results_ready', alive=len(self.last_valid),
+                                            shown=min(len(self.last_valid), core.TOP_N))
+        # تا وقتی تب سرورها باز نشده، تعداد نتیجه‌ها کنار اسم آن می‌آید
+        self.servers_destination.label = (
+            self.t('nav_servers_count', count=len(self.last_valid))
+            if has_results and self.tab != TAB_SERVERS else self.t('nav_servers'))
         done, total = self.progress
         self.progress_bar.value = done / max(total, 1)
         level, key, values = self.status
@@ -417,6 +439,12 @@ class ScannerApp:
     # ---------- رویدادهای تب‌ها و فیلترها ----------
     async def on_tab(self, e):
         self.tab = e.control.selected_index
+        self.body.controls = [self.current_tab()]
+        self.sync()
+
+    async def on_view_results(self, e=None):
+        self.tab = TAB_SERVERS
+        self.page.navigation_bar.selected_index = TAB_SERVERS
         self.body.controls = [self.current_tab()]
         self.sync()
 

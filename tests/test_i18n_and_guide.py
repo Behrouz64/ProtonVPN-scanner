@@ -74,6 +74,11 @@ class BidiIsolationTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(i18n.isolate_ltr(text), text)
 
+    def test_numbers_in_persian_text_use_persian_digits(self):
+        self.assertIn('۶۸', i18n.t('fa', 'scan_found', alive=68, shown=15))
+        self.assertIn('15', i18n.t('en', 'scan_found', alive=68, shown=15))
+        self.assertNotIn('68', i18n.t('fa', 'scan_found', alive=68, shown=15))
+
     def test_persian_strings_are_isolated_english_are_not(self):
         self.assertIn(BIDI_LRI, i18n.t('fa', 'btn_export'))
         self.assertNotIn(BIDI_LRI, i18n.t('en', 'btn_export'))

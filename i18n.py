@@ -10,6 +10,7 @@ STRINGS = {
     'en': {
         'nav_scan': 'Scan',
         'nav_servers': 'Servers',
+        'nav_servers_count': 'Servers ({count})',
         'nav_settings': 'Settings',
         'nav_guide': 'Guide',
         'app_name': 'ProtonVPN Scanner',
@@ -50,6 +51,8 @@ STRINGS = {
         'btn_copy_links': 'Copy wg:// links',
         'results_header': 'Top {shown} of {total} alive',
         'results_empty': 'No results yet. Load the database and scan first.',
+        'results_ready': '{alive} servers are alive. The top {shown} are ready in the Servers tab.',
+        'btn_view_results': 'View results in Servers',
         'card_copy_ip': 'Copy IP',
         'card_copy_link': 'Copy link',
         'card_copy_wg': 'Copy WG',
@@ -106,6 +109,7 @@ STRINGS = {
     'fa': {
         'nav_scan': 'اسکن',
         'nav_servers': 'سرورها',
+        'nav_servers_count': 'سرورها ({count})',
         'nav_settings': 'تنظیمات',
         'nav_guide': 'راهنما',
         'app_name': 'ProtonVPN Scanner',
@@ -146,6 +150,8 @@ STRINGS = {
         'btn_copy_links': 'کپی لینک‌های wg://',
         'results_header': '{shown} سرور برتر از {total} سرور فعال',
         'results_empty': 'هنوز نتیجه‌ای نیست. ابتدا دیتابیس را بارگذاری و اسکن کنید.',
+        'results_ready': '{alive} سرور فعال پیدا شد. {shown} سرور برتر در تب سرورها آماده است.',
+        'btn_view_results': 'مشاهده نتایج در تب سرورها',
         'card_copy_ip': 'کپی IP',
         'card_copy_link': 'کپی لینک',
         'card_copy_wg': 'کپی WG',
@@ -224,10 +230,19 @@ def isolate_ltr(text):
     return _ASCII_RUN.sub(wrap, text)
 
 
+_PERSIAN_DIGITS = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
+
+
 def t(lang, key, **values):
-    """متن کلید را در زبان داده‌شده می‌دهد؛ اگر نبود از انگلیسی استفاده می‌کند."""
+    """متن کلید را در زبان داده‌شده می‌دهد؛ اگر نبود از انگلیسی استفاده می‌کند.
+
+    در فارسی، عددهای داخل متن به رقم فارسی تبدیل می‌شوند تا کنار علامت‌های فارسی جابه‌جا نشوند.
+    """
     lang = normalize_language(lang)
     table = STRINGS.get(lang, {})
     text = table.get(key) or STRINGS['en'][key]
+    if lang == 'fa':  # فقط عدد‌ها؛ مسیر فایل و متن‌های دیگر دست نمی‌خورند
+        values = {name: str(value).translate(_PERSIAN_DIGITS) if isinstance(value, int) and not isinstance(value, bool)
+                  else value for name, value in values.items()}
     text = text.format(**values) if values else text
     return isolate_ltr(text) if lang == 'fa' else text
