@@ -352,6 +352,15 @@ BoxLayout:
             disabled: True
             on_release: app.export_top()
 
+    # AmneziaWG obfuscation (optional): paste the Jc/Jmin/... lines from a working config
+    TextInput:
+        id: awg_params
+        hint_text: "AmneziaWG params (optional): paste Jc, Jmin, Jmax, S1, S2, H1-H4 lines"
+        multiline: True
+        font_size: '12sp'
+        size_hint_y: None
+        height: dp(96)
+
     SectionTitle:
         id: lbl_results
         text: "RESULTS"
@@ -369,7 +378,7 @@ BoxLayout:
 
 SCAN_LOCKED_IDS = ('btn_load', 'btn_free', 'btn_premium', 'btn_all',
                    'spin_continent', 'spin_country', 'btn_scan', 'btn_reset',
-                   'btn_export', 'wg_key')
+                   'btn_export', 'wg_key', 'awg_params')
 
 
 def ping_rgba(ms):
@@ -415,8 +424,13 @@ class ProtonScannerApp(App):
     def show_about(self):
         Factory.AboutPopup().open()
 
-    def private_key(self):
-        return self.root.ids.wg_key.text.strip()
+    def wireguard_options(self):
+        """کلید خصوصی و پارامترهای AmneziaWG را اعتبارسنجی می‌کند؛ در خطا ValueError برمی‌گرداند."""
+        key = self.root.ids.wg_key.text.strip()
+        if key and not core.is_valid_wg_key(key):
+            raise ValueError("Invalid WireGuard private key")
+        obfuscation = core.parse_obfuscation(self.root.ids.awg_params.text)
+        return key, obfuscation
 
     def copy_to_clipboard(self, text, toast_msg):
         Clipboard.copy(text)
@@ -424,36 +438,40 @@ class ProtonScannerApp(App):
 
     def copy_wireguard(self, server):
         try:
-            conf = core.build_wireguard_config(server, self.private_key())
+            key, obfuscation = self.wireguard_options()
+            conf = core.build_wireguard_config(server, key, obfuscation=obfuscation)
         except ValueError as e:
             self.set_status(f"[color=ff3333]❌ {e}[/color]")
             return
         Clipboard.copy(conf)
-        self.set_status("[color=10B981]✅ WireGuard config copied[/color]")
+        self.set_status("[color=10B981]✅ Config copied[/color]")
 
     def save_wireguard(self, server):
         try:
-            path = core.write_wireguard_config(server, self.export_dir, self.private_key())
+            key, obfuscation = self.wireguard_options()
+            path = core.write_wireguard_config(server, self.export_dir, key, obfuscation)
         except (ValueError, OSError) as e:
             self.set_status(f"[color=ff3333]❌ {e}[/color]")
             return
         self.set_status(f"[color=10B981]✅ Saved: {path}[/color]")
 
     def export_top(self):
-        key = self.private_key()
-        if key and not core.is_valid_wg_key(key):
-            self.set_status("[color=ff3333]❌ Invalid WireGuard private key[/color]")
+        try:
+            key, obfuscation = self.wireguard_options()
+        except ValueError as e:
+            self.set_status(f"[color=ff3333]❌ {e}[/color]")
             return
         top = core.top_results(self.last_valid, core.TOP_N)
         if not top:
             self.set_status("[color=ffcc00]⚠️ Nothing to export yet.[/color]")
             return
         try:
-            written, skipped = core.export_wireguard_configs(top, self.export_dir, key)
+            written, skipped = core.export_wireguard_configs(top, self.export_dir, key, obfuscation)
         except OSError as e:
             self.set_status(f"[color=ff3333]❌ {e}[/color]")
             return
-        msg = f"✅ Exported {len(written)} configs to {self.export_dir}"
+        kind = "AmneziaWG" if obfuscation else "WireGuard"
+        msg = f"✅ Exported {len(written)} {kind} configs to {self.export_dir}"
         if skipped:
             msg += f" ({len(skipped)} skipped: no WG key)"
         self.set_status(f"[color=10B981]{msg}[/color]")
@@ -484,6 +502,7 @@ class ProtonScannerApp(App):
         ids.btn_reset.disabled = busy or not self.last_valid
         ids.btn_export.disabled = busy or not self.last_valid
         ids.wg_key.disabled = busy
+        ids.awg_params.disabled = busy
 
     def start_fetch_thread(self):
         # بعد از اولین لود، دکمه RELOAD کش را دور می‌زند و دیتابیس تازه می‌گیرد

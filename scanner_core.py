@@ -285,11 +285,55 @@ def is_valid_wg_key(key):
     return bool(key) and _WG_KEY_RE.fullmatch(key) is not None
 
 
-def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DNS):
+# ---------- AmneziaWG (پنهان‌سازی ترافیک) ----------
+# این پارامترها باید دقیقاً با سروری که به آن وصل می‌شوید یکی باشند؛
+# سرور باید AmneziaWG را پشتیبانی کند، وگرنه handshake برقرار نمی‌شود.
+AWG_KEYS = ('Jc', 'Jmin', 'Jmax', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4')
+PERSISTENT_KEEPALIVE = 25
+
+
+def parse_obfuscation(text):
+    """پارامترهای AmneziaWG را از متن چسبانده‌شده می‌خواند.
+
+    متن خالی یعنی WireGuard ساده و None برمی‌گردد. فقط خط‌های «Key = value» با کلیدهای
+    AWG_KEYS قبول می‌شوند. کلید ناشناخته (مثل PrivateKey) خطا می‌دهد تا اشتباهی
+    چیز دیگری در فایل نوشته نشود. پیام خطا هیچ‌وقت مقدار ورودی را تکرار نمی‌کند.
+    """
+    if not text or not text.strip():
+        return None
+
+    params = {}
+    for line in text.splitlines():
+        line = line.split('#', 1)[0].strip()
+        if not line:
+            continue
+        if '=' not in line:
+            raise ValueError('خطی بدون «=» در پارامترهای AmneziaWG وجود دارد')
+        key, value = (part.strip() for part in line.split('=', 1))
+        if key not in AWG_KEYS:
+            raise ValueError(f'کلید ناشناخته در پارامترهای AmneziaWG: {key}')
+        try:
+            number = int(value)
+        except ValueError:
+            raise ValueError(f'مقدار {key} باید عدد صحیح باشد')
+        if number < 0:
+            raise ValueError(f'مقدار {key} نمی‌تواند منفی باشد')
+        params[key] = number
+
+    missing = [key for key in AWG_KEYS if key not in params]
+    if missing:
+        raise ValueError('پارامترهای AmneziaWG ناقص‌اند: ' + ', '.join(missing))
+    if params['Jmin'] > params['Jmax']:
+        raise ValueError('Jmin نباید از Jmax بزرگ‌تر باشد')
+    return params
+
+
+def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DNS, obfuscation=None):
     """ساخت متن فایل .conf برای یک سرور.
 
     کلید خصوصی به حساب Proton وابسته است و از دیتابیس عمومی به دست نمی‌آید؛
     اگر ورودی داده نشود، جای آن placeholder قرار می‌گیرد.
+    obfuscation (خروجی parse_obfuscation) اگر داده شود، پارامترهای AmneziaWG به [Interface] اضافه می‌شود.
     """
     public_key = server.get('wg_key', '')
     if not public_key:
@@ -299,16 +343,22 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
     if private_key and not is_valid_wg_key(private_key):
         raise ValueError('کلید خصوصی WireGuard نامعتبر است (باید ۴۴ کاراکتر base64 باشد)')
 
-    lines = [
+    interface = [
         '[Interface]',
         f'PrivateKey = {private_key or PRIVATE_KEY_PLACEHOLDER}',
         f'Address = {address}',
         f'DNS = {dns}',
+    ]
+    if obfuscation:
+        interface += [f'{key} = {obfuscation[key]}' for key in AWG_KEYS]
+
+    lines = interface + [
         '',
         '[Peer]',
         f'PublicKey = {public_key}',
         f'AllowedIPs = {WG_ALLOWED_IPS}',
         f'Endpoint = {server["ip"]}:{WG_PORT}',
+        f'PersistentKeepalive = {PERSISTENT_KEEPALIVE}',
         '',
     ]
     return '\n'.join(lines)
@@ -318,21 +368,22 @@ def safe_filename(name):
     return re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip('_') or 'server'
 
 
-def write_wireguard_config(server, directory, private_key=''):
+def write_wireguard_config(server, directory, private_key='', obfuscation=None):
     os.makedirs(directory, exist_ok=True)
-    conf = build_wireguard_config(server, private_key)
-    path = os.path.join(directory, safe_filename(server['name']) + '.conf')
+    conf = build_wireguard_config(server, private_key, obfuscation=obfuscation)
+    suffix = '_awg' if obfuscation else ''
+    path = os.path.join(directory, safe_filename(server['name']) + suffix + '.conf')
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(conf)
     return path
 
 
-def export_wireguard_configs(servers, directory, private_key=''):
+def export_wireguard_configs(servers, directory, private_key='', obfuscation=None):
     """برمی‌گرداند (مسیرهای نوشته‌شده, نام سرورهای رد‌شده)."""
     written, skipped = [], []
     for server in servers:
         try:
-            written.append(write_wireguard_config(server, directory, private_key))
+            written.append(write_wireguard_config(server, directory, private_key, obfuscation))
         except ValueError:
             skipped.append(server['name'])
     return written, skipped

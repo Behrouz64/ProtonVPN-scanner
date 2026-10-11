@@ -317,5 +317,93 @@ class LoadDatabaseTests(unittest.TestCase):
         self.assertEqual((data, source), (self.data, 'network'))
 
 
+AWG_BLOCK = """
+Jc = 4
+Jmin = 50
+Jmax = 1000
+S1 = 0
+S2 = 0
+H1 = 1
+H2 = 2
+H3 = 3
+H4 = 4
+"""
+
+
+class AmneziaWGParseTests(unittest.TestCase):
+    def test_empty_text_means_plain_wireguard(self):
+        self.assertIsNone(core.parse_obfuscation(''))
+        self.assertIsNone(core.parse_obfuscation('   \n  '))
+
+    def test_parses_full_block(self):
+        params = core.parse_obfuscation(AWG_BLOCK)
+        self.assertEqual(params, {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
+                                  'H1': 1, 'H2': 2, 'H3': 3, 'H4': 4})
+
+    def test_ignores_comments_and_blank_lines(self):
+        text = '# Bouncing = 0\n\n' + AWG_BLOCK.replace('Jc = 4', 'Jc = 4  # junk count')
+        self.assertEqual(core.parse_obfuscation(text)['Jc'], 4)
+
+    def test_unknown_key_is_rejected_without_echoing_value(self):
+        with self.assertRaisesRegex(ValueError, 'PrivateKey') as ctx:
+            core.parse_obfuscation(AWG_BLOCK + 'PrivateKey = SECRETVALUE\n')
+        self.assertNotIn('SECRETVALUE', str(ctx.exception))
+
+    def test_missing_keys_are_named(self):
+        text = AWG_BLOCK.replace('H4 = 4', '')
+        with self.assertRaisesRegex(ValueError, 'H4'):
+            core.parse_obfuscation(text)
+
+    def test_non_integer_value_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Jc'):
+            core.parse_obfuscation(AWG_BLOCK.replace('Jc = 4', 'Jc = four'))
+
+    def test_negative_value_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'S1'):
+            core.parse_obfuscation(AWG_BLOCK.replace('S1 = 0', 'S1 = -1'))
+
+    def test_jmin_greater_than_jmax_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Jmin'):
+            core.parse_obfuscation(AWG_BLOCK.replace('Jmax = 1000', 'Jmax = 10'))
+
+    def test_line_without_equals_is_rejected(self):
+        with self.assertRaises(ValueError):
+            core.parse_obfuscation(AWG_BLOCK + 'garbage\n')
+
+
+class AmneziaWGConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.server = make_server('US#1', ip='185.159.156.10')
+        self.params = core.parse_obfuscation(AWG_BLOCK)
+
+    def test_obfuscation_lines_are_in_interface_section(self):
+        conf = core.build_wireguard_config(self.server, VALID_KEY_2, obfuscation=self.params)
+        lines = conf.splitlines()
+        peer_index = lines.index('[Peer]')
+        interface = lines[:peer_index]
+        for key in core.AWG_KEYS:
+            self.assertIn(f'{key} = {self.params[key]}', interface)
+
+    def test_plain_wireguard_has_no_obfuscation_lines(self):
+        conf_lines = core.build_wireguard_config(self.server, VALID_KEY_2).splitlines()
+        for key in core.AWG_KEYS:
+            self.assertFalse(any(line.startswith(f'{key} =') for line in conf_lines), key)
+
+    def test_persistent_keepalive_present_in_both_modes(self):
+        plain = core.build_wireguard_config(self.server, VALID_KEY_2)
+        awg = core.build_wireguard_config(self.server, VALID_KEY_2, obfuscation=self.params)
+        for conf in (plain, awg):
+            self.assertIn('PersistentKeepalive = 25', conf.splitlines())
+
+    def test_awg_export_uses_suffix_and_keeps_wireguard_default_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            awg_path = core.write_wireguard_config(self.server, tmp, VALID_KEY_2, self.params)
+            plain_path = core.write_wireguard_config(self.server, tmp, VALID_KEY_2)
+            self.assertEqual(os.path.basename(awg_path), 'US_1_awg.conf')
+            self.assertEqual(os.path.basename(plain_path), 'US_1.conf')
+            with open(awg_path, encoding='utf-8') as f:
+                self.assertIn('Jc = 4', f.read())
+
+
 if __name__ == '__main__':
     unittest.main()
