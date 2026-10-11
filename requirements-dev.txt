@@ -1,3 +1,4 @@
-kivy==2.3.0
+flet==1.0.4
+flet-desktop==1.0.4
 requests
 qrcode

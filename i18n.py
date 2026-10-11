@@ -1,0 +1,230 @@
+"""متن‌های رابط کاربری به دو زبان. هر کلید باید در هر دو زبان وجود داشته باشد (تست‌ها این را بررسی می‌کنند)."""
+
+import re
+
+LANGUAGES = ('fa', 'en')
+DEFAULT_LANGUAGE = 'fa'
+LANGUAGE_NAMES = {'fa': 'فارسی', 'en': 'English'}
+
+STRINGS = {
+    'en': {
+        'nav_scan': 'Scan',
+        'nav_servers': 'Servers',
+        'nav_settings': 'Settings',
+        'nav_guide': 'Guide',
+        'app_name': 'ProtonVPN Scanner',
+
+        'step_database': '1. Database',
+        'btn_load': 'Load database',
+        'btn_reload': 'Reload database',
+        'db_none': 'No database loaded',
+        'db_summary': '{count} hosts ({mode})',
+        'mode_free': 'Free',
+        'mode_paid': 'Premium',
+        'mode_all': 'All',
+        'continent_all': 'All continents',
+        'country_all': 'All countries',
+
+        'step_scan': '2. Scan',
+        'vpn_warning': 'Turn your VPN OFF before scanning. Pings must be measured directly.',
+        'btn_scan': 'Start scan (500)',
+        'btn_next': 'Next 500',
+        'btn_reset': 'Reset',
+        'scan_progress': 'Scanning {total} servers…',
+        'scan_none_in_scope': 'No servers match this filter.',
+        'scan_end': 'Reached the end of the list.',
+        'scan_found': 'Found {alive} alive. Showing the top {shown}.',
+        'scan_all_dead': 'All {total} servers were dead or fake (under {ms} ms).',
+        'scan_reset_done': 'Scanner reset. Ready to start again.',
+
+        'load_loading': 'Loading database…',
+        'load_done_cache': 'Loaded from the local cache.',
+        'load_done_network': 'Downloaded a fresh database.',
+        'load_done_stale': 'Network failed. Loaded an older offline copy.',
+        'load_failed': 'Network error and no cache available.',
+        'load_first': 'Load the database first.',
+
+        'key_label': 'WireGuard private key',
+        'key_hint': 'Kept only in this window. Never saved or shared by the app.',
+        'btn_export': 'Export top 15 (.conf)',
+        'btn_copy_links': 'Copy wg:// links',
+        'results_header': 'Top {shown} of {total} alive',
+        'results_empty': 'No results yet. Load the database and scan first.',
+        'card_copy_ip': 'Copy IP',
+        'card_copy_link': 'Copy link',
+        'card_copy_wg': 'Copy WG',
+        'card_qr': 'QR',
+        'card_save': 'Save .conf',
+        'copied': 'Copied.',
+        'link_copied': 'Link copied for {name}.',
+        'config_copied': 'Config copied.',
+        'links_copied': 'Copied {count} wg:// links for {scope}.',
+        'links_skipped': '{count} skipped (no public key).',
+        'scope_all': 'all scanned servers',
+        'saved_to': 'Saved to {path}',
+        'exported': 'Exported {count} {kind} configs to {path}',
+        'exported_partial': 'Exported {count} {kind} configs to {path}. {skipped} skipped (no public key).',
+        'links_copied_partial': 'Copied {count} wg:// links for {scope}. {skipped} skipped (no public key).',
+        'filter_title': 'Server type and region',
+        'export_nothing': 'Nothing to export yet. Scan first.',
+        'no_scope_servers': 'No scanned servers in this scope. Scan first.',
+
+        'err_key_required': 'Enter your WireGuard private key first.',
+        'err_key_invalid': 'That is not a valid WireGuard private key (44 characters, ending with =).',
+        'err_awg_invalid': 'Fix these obfuscation values in Settings: {fields}.',
+        'err_awg_number': 'whole number, 0 or more',
+        'err_awg_range': 'a number or a range like 1-5',
+        'err_awg_order': 'Jmin must not be larger than Jmax',
+        'err_qr_package': 'QR needs the qrcode package, which this build does not include.',
+        'err_generic': 'Something went wrong: {error}',
+        'err_no_public_key': 'This server has no WireGuard public key in the database.',
+        'err_bad_public_key': 'The WireGuard public key of this server is invalid.',
+        'err_bad_ip': 'The IP address of this server is invalid.',
+
+        'qr_title': 'QR code · {name}',
+        'qr_same_host': 'Same host, other names: {aliases}',
+        'qr_hint': 'In the WireGuard app choose Add tunnel, then Create from QR code, '
+                   'and point the camera at this screen. The code contains your private key.',
+        'close': 'Close',
+
+        'settings_language': 'Language',
+        'settings_obfs': 'AmneziaWG obfuscation',
+        'settings_obfs_switch': 'Enable obfuscation',
+        'settings_obfs_on': 'On: configs include the AmneziaWG parameters below.',
+        'settings_obfs_off': 'Off: plain WireGuard configs.',
+        'settings_obfs_hint': 'These values must match the server you connect to. '
+                              'The server has to support AmneziaWG too.',
+        'settings_reset': 'Reset to suggested values',
+        'settings_reset_done': 'Suggested values restored.',
+        'about_title': 'About',
+        'about_version': 'Version {version}',
+        'about_disclaimer': 'Unofficial community tool. Not affiliated with Proton AG.',
+        'open_telegram': 'Telegram',
+        'open_x': 'X (Twitter)',
+    },
+    'fa': {
+        'nav_scan': 'اسکن',
+        'nav_servers': 'سرورها',
+        'nav_settings': 'تنظیمات',
+        'nav_guide': 'راهنما',
+        'app_name': 'ProtonVPN Scanner',
+
+        'step_database': '۱. دیتابیس',
+        'btn_load': 'بارگذاری دیتابیس',
+        'btn_reload': 'بارگذاری دوباره',
+        'db_none': 'دیتابیسی بارگذاری نشده',
+        'db_summary': '{count} میزبان ({mode})',
+        'mode_free': 'رایگان',
+        'mode_paid': 'پولی',
+        'mode_all': 'همه',
+        'continent_all': 'همه‌ی قاره‌ها',
+        'country_all': 'همه‌ی کشورها',
+
+        'step_scan': '۲. اسکن',
+        'vpn_warning': 'قبل از اسکن VPN را کاملاً خاموش کنید. پینگ باید مستقیم اندازه‌گیری شود.',
+        'btn_scan': 'شروع اسکن (۵۰۰)',
+        'btn_next': '۵۰۰ بعدی',
+        'btn_reset': 'شروع از نو',
+        'scan_progress': 'در حال اسکن {total} سرور…',
+        'scan_none_in_scope': 'سروری با این فیلتر پیدا نشد.',
+        'scan_end': 'به انتهای فهرست رسیدیم.',
+        'scan_found': '{alive} سرور فعال پیدا شد. {shown} سرور برتر نشان داده می‌شود.',
+        'scan_all_dead': 'همه‌ی {total} سرور مرده یا جعلی بودند (زیر {ms} میلی‌ثانیه).',
+        'scan_reset_done': 'اسکنر ریست شد. آماده‌ی شروع دوباره است.',
+
+        'load_loading': 'در حال بارگذاری دیتابیس…',
+        'load_done_cache': 'از کش محلی بارگذاری شد.',
+        'load_done_network': 'دیتابیس تازه دانلود شد.',
+        'load_done_stale': 'اتصال به شبکه ناموفق بود. نسخه‌ی قدیمی آفلاین بارگذاری شد.',
+        'load_failed': 'خطای شبکه و کشی برای استفاده وجود ندارد.',
+        'load_first': 'ابتدا دیتابیس را بارگذاری کنید.',
+
+        'key_label': 'کلید خصوصی WireGuard',
+        'key_hint': 'فقط در همین پنجره نگه داشته می‌شود. برنامه آن را ذخیره یا منتشر نمی‌کند.',
+        'btn_export': 'خروجی ۱۵ سرور برتر (.conf)',
+        'btn_copy_links': 'کپی لینک‌های wg://',
+        'results_header': '{shown} سرور برتر از {total} سرور فعال',
+        'results_empty': 'هنوز نتیجه‌ای نیست. ابتدا دیتابیس را بارگذاری و اسکن کنید.',
+        'card_copy_ip': 'کپی IP',
+        'card_copy_link': 'کپی لینک',
+        'card_copy_wg': 'کپی WG',
+        'card_qr': 'QR',
+        'card_save': 'ذخیره .conf',
+        'copied': 'کپی شد.',
+        'link_copied': 'لینک {name} کپی شد.',
+        'config_copied': 'کانفیگ کپی شد.',
+        'links_copied': '{count} لینک wg:// برای {scope} کپی شد.',
+        'links_skipped': '{count} سرور رد شد (کلید عمومی ندارد).',
+        'scope_all': 'همه‌ی سرورهای اسکن‌شده',
+        'saved_to': 'در {path} ذخیره شد',
+        'exported': '{count} کانفیگ {kind} در {path} ذخیره شد',
+        'exported_partial': '{count} کانفیگ {kind} در {path} ذخیره شد. {skipped} سرور رد شد (کلید عمومی ندارد).',
+        'links_copied_partial': '{count} لینک wg:// برای {scope} کپی شد. {skipped} سرور رد شد (کلید عمومی ندارد).',
+        'filter_title': 'نوع سرور و منطقه',
+        'export_nothing': 'هنوز چیزی برای خروجی نیست. ابتدا اسکن کنید.',
+        'no_scope_servers': 'در این محدوده سرور اسکن‌شده‌ای نیست. ابتدا اسکن کنید.',
+
+        'err_key_required': 'ابتدا کلید خصوصی WireGuard را وارد کنید.',
+        'err_key_invalid': 'این کلید خصوصی WireGuard معتبر نیست (۴۴ کاراکتر که با = تمام می‌شود).',
+        'err_awg_invalid': 'این مقادیر پنهان‌سازی را در تنظیمات اصلاح کنید: {fields}.',
+        'err_awg_number': 'عدد صحیح و صفر یا بیشتر',
+        'err_awg_range': 'یک عدد یا بازه‌ای مثل 1-5',
+        'err_awg_order': 'Jmin نباید از Jmax بزرگ‌تر باشد',
+        'err_qr_package': 'برای QR بسته‌ی qrcode لازم است که در این نسخه نیست.',
+        'err_generic': 'خطا: {error}',
+        'err_no_public_key': 'این سرور کلید عمومی WireGuard در دیتابیس ندارد.',
+        'err_bad_public_key': 'کلید عمومی WireGuard این سرور نامعتبر است.',
+        'err_bad_ip': 'نشانی IP این سرور نامعتبر است.',
+
+        'qr_title': 'کد QR · {name}',
+        'qr_same_host': 'همان میزبان با نام‌های دیگر: {aliases}',
+        'qr_hint': 'در برنامه‌ی WireGuard گزینه‌ی Add tunnel و بعد Create from QR code را بزنید '
+                   'و دوربین را به این صفحه بگیرید. این کد کلید خصوصی شما را دارد.',
+        'close': 'بستن',
+
+        'settings_language': 'زبان',
+        'settings_obfs': 'پنهان‌سازی AmneziaWG',
+        'settings_obfs_switch': 'فعال‌سازی پنهان‌سازی',
+        'settings_obfs_on': 'روشن: کانفیگ‌ها پارامترهای AmneziaWG زیر را دارند.',
+        'settings_obfs_off': 'خاموش: کانفیگ WireGuard ساده.',
+        'settings_obfs_hint': 'این مقادیر باید با تنظیمات سرور مقصد یکی باشند. '
+                              'سرور هم باید AmneziaWG را پشتیبانی کند.',
+        'settings_reset': 'بازگردانی مقادیر پیشنهادی',
+        'settings_reset_done': 'مقادیر پیشنهادی برگردانده شد.',
+        'about_title': 'درباره',
+        'about_version': 'نسخه {version}',
+        'about_disclaimer': 'ابزار غیررسمی و مستقل؛ ارتباطی با Proton AG ندارد.',
+        'open_telegram': 'تلگرام',
+        'open_x': 'X (توییتر)',
+    },
+}
+
+
+def normalize_language(value):
+    """زبان نامعتبر یا ناشناخته را به زبان پیش‌فرض برمی‌گرداند."""
+    return value if value in LANGUAGES else DEFAULT_LANGUAGE
+
+
+_ASCII_RUN = re.compile(r'[A-Za-z0-9_./:#=+\-]+')
+
+
+def isolate_ltr(text):
+    """توکن‌های لاتین با نقطه یا دونقطه مثل wg:// و .conf را جدا از متن راست‌به‌چپ نگه می‌دارد.
+
+    بدون این کار، پرانتزها و علامت‌ها داخل متن فارسی جای اشتباه می‌گیرند (مثلاً «conf.» به‌جای «.conf»).
+    """
+    def wrap(match):
+        run = match.group(0)
+        if re.search(r'[A-Za-z0-9]', run) and re.search(r'[./:#=]', run):
+            return f'\u2066{run}\u2069'
+        return run
+    return _ASCII_RUN.sub(wrap, text)
+
+
+def t(lang, key, **values):
+    """متن کلید را در زبان داده‌شده می‌دهد؛ اگر نبود از انگلیسی استفاده می‌کند."""
+    lang = normalize_language(lang)
+    table = STRINGS.get(lang, {})
+    text = table.get(key) or STRINGS['en'][key]
+    text = text.format(**values) if values else text
+    return isolate_ltr(text) if lang == 'fa' else text

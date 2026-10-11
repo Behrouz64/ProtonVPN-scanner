@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    name: Build APK using Buildozer
+    name: Build APK with flet build
     runs-on: ubuntu-22.04
 
     steps:
@@ -18,30 +18,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install system dependencies
+      - name: Install Flet CLI and app dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --upgrade pip
-          pip install buildozer==1.5.0 cython==0.29.36 virtualenv
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt flet-cli==1.0.4
 
-      - name: Inject Android SDK Licenses
-        run: |
-          mkdir -p .buildozer/android/platform/android-sdk/licenses
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > .buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > .buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+      - name: Build APK
+        run: flet build apk -v
 
-      - name: Build APK with Buildozer
-        run: |
-          buildozer -v android debug
-
-      - name: Upload APK Artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ProtonScanner-APK
-          path: bin/*.apk
+          path: build/apk/*.apk

@@ -200,17 +200,20 @@ class WireGuardConfigTests(unittest.TestCase):
 
     def test_missing_public_key_raises(self):
         server = make_server('US#1', wg_key='')
-        with self.assertRaisesRegex(ValueError, 'کلید عمومی'):
+        with self.assertRaises(core.ConfigError) as ctx:
             core.build_wireguard_config(server)
+        self.assertEqual(ctx.exception.code, 'no_public_key')
 
     def test_invalid_public_key_raises(self):
         server = make_server('US#1', wg_key='not-a-key')
-        with self.assertRaises(ValueError):
+        with self.assertRaises(core.ConfigError) as ctx:
             core.build_wireguard_config(server)
+        self.assertEqual(ctx.exception.code, 'bad_public_key')
 
     def test_invalid_private_key_raises(self):
-        with self.assertRaisesRegex(ValueError, 'کلید خصوصی'):
+        with self.assertRaises(core.ConfigError) as ctx:
             core.build_wireguard_config(self.server, 'nope')
+        self.assertEqual(ctx.exception.code, 'bad_private_key')
 
     def test_safe_filename(self):
         self.assertEqual(core.safe_filename('US#1 (Free)'), 'US_1_Free')
@@ -326,109 +329,107 @@ class LoadDatabaseTests(unittest.TestCase):
         self.assertEqual((data, source), (self.data, 'network'))
 
 
-AWG_BLOCK = """
-Jc = 4
-Jmin = 50
-Jmax = 1000
-S1 = 0
-S2 = 0
-H1 = 1
-H2 = 2
-H3 = 3
-H4 = 4
-"""
+class AmneziaWGCheckTests(unittest.TestCase):
+    """فرم تنظیمات AmneziaWG: مقادیر پیش‌فرض، نرمال‌سازی و کدهای خطا (بدون متن ورودی)."""
 
+    def values(self, **changes):
+        return {**core.DEFAULT_OBFUSCATION, **changes}
 
-class AmneziaWGParseTests(unittest.TestCase):
-    def test_empty_text_means_plain_wireguard(self):
-        self.assertIsNone(core.parse_obfuscation(''))
-        self.assertIsNone(core.parse_obfuscation('   \n  '))
-
-    def test_parses_full_block(self):
-        params = core.parse_obfuscation(AWG_BLOCK)
+    def test_defaults_are_valid_and_normalized(self):
+        params, errors = core.check_obfuscation(core.DEFAULT_OBFUSCATION)
+        self.assertEqual(errors, {})
         self.assertEqual(params, {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
                                   'H1': '1', 'H2': '2', 'H3': '3', 'H4': '4'})
 
-    def test_default_block_round_trips(self):
-        text = core.format_obfuscation(core.DEFAULT_OBFUSCATION)
-        params = core.parse_obfuscation(text)
-        expected = {k: str(v) if k.startswith('H') else v for k, v in core.DEFAULT_OBFUSCATION.items()}
-        self.assertEqual(params, expected)
+    def test_text_numbers_are_accepted(self):
+        params, errors = core.check_obfuscation(self.values(Jc=' 7 ', S1='3'))
+        self.assertEqual(errors, {})
+        self.assertEqual((params['Jc'], params['S1']), (7, 3))
 
-    def test_ignores_comments_and_blank_lines(self):
-        text = '# Bouncing = 0\n\n' + AWG_BLOCK.replace('Jc = 4', 'Jc = 4  # junk count')
-        self.assertEqual(core.parse_obfuscation(text)['Jc'], 4)
+    def test_persian_digits_are_accepted(self):
+        params, errors = core.check_obfuscation(self.values(Jc='۷'))
+        self.assertEqual((errors, params['Jc']), ({}, 7))
 
-    def test_unknown_key_is_rejected_without_echoing_value(self):
-        with self.assertRaisesRegex(ValueError, 'خط') as ctx:
-            core.parse_obfuscation(AWG_BLOCK + 'PrivateKey = SECRETVALUE\n')
-        self.assertNotIn('SECRETVALUE', str(ctx.exception))
-        self.assertNotIn('PrivateKey', str(ctx.exception))
+    def test_non_integer_is_reported_by_key(self):
+        _, errors = core.check_obfuscation(self.values(Jc='four'))
+        self.assertEqual(errors, {'Jc': 'number'})
 
-    def test_bare_private_key_line_is_not_echoed(self):
-        # کلید خصوصی بدون نام کلید: قبلاً بخشی از آن در پیام خطا برمی‌گشت
-        with self.assertRaises(ValueError) as ctx:
-            core.parse_obfuscation(VALID_KEY + '\n' + AWG_BLOCK)
-        self.assertNotIn(VALID_KEY, str(ctx.exception))
-        self.assertNotIn(VALID_KEY[:-1], str(ctx.exception))
+    def test_negative_value_is_reported(self):
+        _, errors = core.check_obfuscation(self.values(S1='-1'))
+        self.assertEqual(errors, {'S1': 'number'})
 
-    def test_duplicate_key_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'تکراری'):
-            core.parse_obfuscation(AWG_BLOCK + 'Jc = 99\n')
+    def test_h_range_is_kept(self):
+        params, errors = core.check_obfuscation(self.values(H1='100-200'))
+        self.assertEqual((errors, params['H1']), ({}, '100-200'))
 
-    def test_newer_amneziawg_keys_are_reported_as_unsupported(self):
-        with self.assertRaisesRegex(ValueError, 'پشتیبانی‌نشده'):
-            core.parse_obfuscation(AWG_BLOCK + 'S3 = 5\n')
+    def test_h_above_uint32_is_range_error(self):
+        _, errors = core.check_obfuscation(self.values(H1='99999999999'))
+        self.assertEqual(errors, {'H1': 'range'})
 
-    def test_h_range_is_accepted_and_kept(self):
-        params = core.parse_obfuscation(AWG_BLOCK.replace('H1 = 1', 'H1 = 100-200'))
-        self.assertEqual(params['H1'], '100-200')
+    def test_h_range_with_low_above_high_is_range_error(self):
+        _, errors = core.check_obfuscation(self.values(H2='9-3'))
+        self.assertEqual(errors, {'H2': 'range'})
 
-    def test_h_value_above_uint32_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'H1'):
-            core.parse_obfuscation(AWG_BLOCK.replace('H1 = 1', 'H1 = 99999999999'))
+    def test_jmin_above_jmax_is_order_error(self):
+        _, errors = core.check_obfuscation(self.values(Jmax=10))
+        self.assertEqual(errors, {'Jmin': 'order'})
 
-    def test_h_range_with_low_above_high_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'H2'):
-            core.parse_obfuscation(AWG_BLOCK.replace('H2 = 2', 'H2 = 9-3'))
+    def test_empty_field_is_reported(self):
+        _, errors = core.check_obfuscation(self.values(H4=''))
+        self.assertEqual(errors, {'H4': 'range'})
 
-    def test_missing_s1_s2_default_to_zero(self):
-        text = AWG_BLOCK.replace('S1 = 0', '').replace('S2 = 0', '')
-        params = core.parse_obfuscation(text)
-        self.assertEqual((params['S1'], params['S2']), (0, 0))
+    def test_error_report_never_contains_the_input(self):
+        # کاربر ممکن است کلید خصوصی را در یک فیلد بچسباند؛ گزارش خطا فقط کد دارد
+        _, errors = core.check_obfuscation(self.values(Jc=VALID_KEY))
+        self.assertEqual(errors, {'Jc': 'number'})
+        self.assertNotIn(VALID_KEY, str(errors))
 
-    def test_missing_keys_are_named(self):
-        text = AWG_BLOCK.replace('H4 = 4', '')
-        with self.assertRaisesRegex(ValueError, 'H4'):
-            core.parse_obfuscation(text)
 
-    def test_non_integer_value_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'Jc'):
-            core.parse_obfuscation(AWG_BLOCK.replace('Jc = 4', 'Jc = four'))
+class QrCellTests(unittest.TestCase):
+    """هندسه‌ی QR بدون نیاز به بسته‌ی qrcode: مربع‌ها باید درون بوم و با اندازه‌ی صحیح باشند."""
 
-    def test_negative_value_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'S1'):
-            core.parse_obfuscation(AWG_BLOCK.replace('S1 = 0', 'S1 = -1'))
+    def test_one_rect_per_dark_module_with_integer_cells(self):
+        matrix = [[True, False, True], [False, True, False], [True, False, True]]
+        cell, rects = core.qr_cells(matrix, 30)
+        self.assertEqual(cell, 10)
+        self.assertEqual(len(rects), 5)
+        self.assertTrue(all(size == cell for _, _, size in rects))
 
-    def test_jmin_greater_than_jmax_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'Jmin'):
-            core.parse_obfuscation(AWG_BLOCK.replace('Jmax = 1000', 'Jmax = 10'))
+    def test_rects_stay_inside_the_square_canvas(self):
+        matrix = [[(row + col) % 2 == 0 for col in range(25)] for row in range(25)]
+        side = 280
+        cell, rects = core.qr_cells(matrix, side)
+        for x, y, size in rects:
+            self.assertGreaterEqual(x, 0)
+            self.assertGreaterEqual(y, 0)
+            self.assertLessEqual(x + size, side)
+            self.assertLessEqual(y + size, side)
 
-    def test_line_without_equals_is_rejected(self):
-        with self.assertRaises(ValueError):
-            core.parse_obfuscation(AWG_BLOCK + 'garbage\n')
+    def test_code_is_centered_when_side_is_not_a_multiple(self):
+        matrix = [[True] * 33 for _ in range(33)]
+        cell, rects = core.qr_cells(matrix, 280)
+        drawn = cell * 33
+        xs = [x for x, _, _ in rects]
+        self.assertEqual(min(xs), (280 - drawn) // 2)
+        self.assertEqual(max(xs) + cell, (280 - drawn) // 2 + drawn)
+
+    def test_row_zero_is_drawn_at_the_top(self):
+        matrix = [[True, True], [False, False]]
+        _, rects = core.qr_cells(matrix, 20)
+        self.assertEqual(min(y for _, y, _ in rects), 0)
 
 
 class AmneziaWGConfigTests(unittest.TestCase):
     def test_server_ip_with_newline_is_rejected(self):
         # IP بدون اعتبارسنجی وارد فایل می‌شد و می‌توانست خط PostUp تزریق کند
         server = make_server('US#1', ip='1.2.3.4\nPostUp = echo injected')
-        with self.assertRaisesRegex(ValueError, 'IP'):
+        with self.assertRaises(core.ConfigError) as ctx:
             core.build_wireguard_config(server, VALID_KEY_2)
+        self.assertEqual(ctx.exception.code, 'bad_ip')
 
     def setUp(self):
         self.server = make_server('US#1', ip='185.159.156.10')
-        self.params = core.parse_obfuscation(AWG_BLOCK)
+        self.params = core.check_obfuscation(core.DEFAULT_OBFUSCATION)[0]
 
     def test_obfuscation_lines_are_in_interface_section(self):
         conf = core.build_wireguard_config(self.server, VALID_KEY_2, obfuscation=self.params)
@@ -510,7 +511,7 @@ def parse_wg_link(link):
 class WgLinkTests(unittest.TestCase):
     def setUp(self):
         self.server = {'name': 'AL#48', 'ip': '203.0.113.7', 'cc': 'AL', 'city': 'Tirana', 'wg_key': VALID_KEY_2}
-        self.params = core.parse_obfuscation(core.format_obfuscation(core.DEFAULT_OBFUSCATION))
+        self.params = core.check_obfuscation(core.DEFAULT_OBFUSCATION)[0]
 
     def test_link_has_endpoint_and_key_parameters(self):
         link = core.build_wg_link(self.server, VALID_KEY, obfuscation=self.params)

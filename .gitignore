@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-.buildozer/
+build/
 bin/
 cache_github.json
 .venv/

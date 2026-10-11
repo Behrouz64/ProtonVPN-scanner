@@ -1,4 +1,4 @@
-"""منطق بدون وابستگی به Kivy: دریافت دیتابیس، فیلترها، پینگ و خروجی WireGuard.
+"""منطق بدون وابستگی به رابط گرافیکی: دریافت دیتابیس، فیلترها، پینگ و خروجی WireGuard.
 
 این ماژول عمداً فقط از کتابخانه‌های استاندارد و requests استفاده می‌کند تا
 بتوان آن را بدون رابط گرافیکی تست کرد.
@@ -19,6 +19,8 @@ try:
     import qrcode
 except ImportError:  # qrcode فقط برای نمایش QR لازم است
     qrcode = None
+
+APP_VERSION = '1.0.2'
 
 # لینک‌های ضد فیلتر و کمکی برای دانلود از گیت‌هاب در ایران
 GITHUB_MIRRORS = [
@@ -313,17 +315,12 @@ def is_valid_wg_key(key):
 # این پارامترها باید دقیقاً با سروری که به آن وصل می‌شوید یکی باشند؛
 # سرور باید AmneziaWG را پشتیبانی کند، وگرنه handshake برقرار نمی‌شود.
 AWG_KEYS = ('Jc', 'Jmin', 'Jmax', 'S1', 'S2', 'H1', 'H2', 'H3', 'H4')
-AWG_REQUIRED_KEYS = ('Jc', 'Jmin', 'Jmax', 'H1', 'H2', 'H3', 'H4')
-AWG_DEFAULTS = {'S1': 0, 'S2': 0}
 # مقادیر پیش‌فرض از یک کانفیگ AmneziaWG کارکرده. H1-H4 همان نوع پیام‌های استاندارد
 # WireGuard هستند و S1/S2 صفر است؛ پس تفاوت اصلی با WireGuard ساده، بسته‌های junk (Jc) است.
 DEFAULT_OBFUSCATION = {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
                        'H1': 1, 'H2': 2, 'H3': 3, 'H4': 4}
 
 
-def format_obfuscation(params):
-    """متن قابل چسباندن برای کادر پارامترهای AmneziaWG (خروجی parse_obfuscation را برمی‌گرداند)."""
-    return '\n'.join(f'{key} = {params[key]}' for key in AWG_KEYS)
 AWG_H_KEYS = ('H1', 'H2', 'H3', 'H4')
 AWG_UINT32_MAX = 2 ** 32 - 1
 _AWG_UINT_RE = re.compile(r'\d+')
@@ -331,54 +328,42 @@ _AWG_H_RE = re.compile(r'(\d+)(?:-(\d+))?')
 PERSISTENT_KEEPALIVE = 25
 
 
-def _parse_obfuscation_value(key, value, lineno):
-    if key in AWG_H_KEYS:
-        match = _AWG_H_RE.fullmatch(value)
-        if not match:
-            raise ValueError(f'خط {lineno}: مقدار {key} باید عدد یا بازه «a-b» باشد')
-        low = int(match.group(1))
-        high = int(match.group(2)) if match.group(2) else low
-        if low > high or high > AWG_UINT32_MAX:
-            raise ValueError(f'خط {lineno}: مقدار {key} خارج از محدوده است')
-        return f'{low}-{high}' if match.group(2) else str(low)
+class ConfigError(ValueError):
+    """خطای سرور یا کلید. code ثابت است و UI متن زبان کاربر را از روی آن می‌سازد."""
 
-    if not _AWG_UINT_RE.fullmatch(value):
-        raise ValueError(f'خط {lineno}: مقدار {key} باید عدد صحیح و غیرمنفی باشد')
-    return int(value)
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
 
 
-def parse_obfuscation(text):
-    """پارامترهای AmneziaWG را از متن چسبانده‌شده می‌خواند.
+def check_obfuscation(values):
+    """پارامترهای AmneziaWG را از فرم تنظیمات بررسی می‌کند.
 
-    متن خالی یعنی WireGuard ساده و None برمی‌گردد. فقط خط‌های «Key = value» با کلیدهای
-    AWG_KEYS قبول می‌شوند. هیچ خطایی متن ورودی را تکرار نمی‌کند، چون ممکن است
-    کلید خصوصی باشد که کاربر اشتباهی چسبانده؛ فقط شماره خط گزارش می‌شود.
+    values نگاشتی از نام پارامتر به عدد یا رشته است. برمی‌گرداند (params, errors):
+    params مقادیر نرمال‌شده‌ی همه‌ی AWG_KEYS است و فقط وقتی معتبر است که errors خالی باشد.
+    errors نگاشت نام پارامتر به یکی از کدهای زیر است:
+      'number'  عدد صحیح و غیرمنفی نیست
+      'range'   مقدار H عدد یا بازه‌ی «a-b» نیست یا خارج از محدوده است
+      'order'   Jmin از Jmax بزرگ‌تر است
     """
-    if not text or not text.strip():
-        return None
-
-    params = {}
-    for lineno, raw in enumerate(text.splitlines(), start=1):
-        line = raw.split('#', 1)[0].strip()
-        if not line:
-            continue
-        if '=' not in line:
-            raise ValueError(f'خط {lineno}: باید به شکل «نام = مقدار» باشد')
-        key, value = (part.strip() for part in line.split('=', 1))
-        if key not in AWG_KEYS:
-            raise ValueError(
-                f'خط {lineno}: پارامتر پشتیبانی‌نشده. فقط ' + ', '.join(AWG_KEYS) + ' مجازند')
-        if key in params:
-            raise ValueError(f'خط {lineno}: {key} تکراری است')
-        params[key] = _parse_obfuscation_value(key, value, lineno)
-
-    missing = [key for key in AWG_REQUIRED_KEYS if key not in params]
-    if missing:
-        raise ValueError('پارامترهای AmneziaWG ناقص‌اند: ' + ', '.join(missing))
-    params = {**AWG_DEFAULTS, **params}
-    if params['Jmin'] > params['Jmax']:
-        raise ValueError('Jmin نباید از Jmax بزرگ‌تر باشد')
-    return params
+    params, errors = {}, {}
+    for key in AWG_KEYS:
+        raw = str(values.get(key, '')).strip()
+        if key in AWG_H_KEYS:
+            match = _AWG_H_RE.fullmatch(raw)
+            low = int(match.group(1)) if match else 0
+            high = int(match.group(2)) if match and match.group(2) else low
+            if not match or low > high or high > AWG_UINT32_MAX:
+                errors[key] = 'range'
+            else:
+                params[key] = f'{low}-{high}' if match.group(2) else str(low)
+        elif _AWG_UINT_RE.fullmatch(raw):
+            params[key] = int(raw)
+        else:
+            errors[key] = 'number'
+    if not errors and params['Jmin'] > params['Jmax']:
+        errors['Jmin'] = 'order'
+    return params, errors
 
 
 def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DNS, obfuscation=None):
@@ -386,19 +371,16 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
 
     کلید خصوصی به حساب Proton وابسته است و از دیتابیس عمومی به دست نمی‌آید؛
     اگر ورودی داده نشود، جای آن placeholder قرار می‌گیرد.
-    obfuscation (خروجی parse_obfuscation) اگر داده شود، پارامترهای AmneziaWG به [Interface] اضافه می‌شود.
+    obfuscation (خروجی check_obfuscation) اگر داده شود، پارامترهای AmneziaWG به [Interface] اضافه می‌شود.
     """
     public_key = server.get('wg_key', '')
     if not public_key:
-        raise ValueError(f"{server['name']}: کلید عمومی WireGuard در دیتابیس موجود نیست")
+        raise ConfigError('no_public_key', f"{server['name']}: no WireGuard public key in the database")
     if not is_valid_wg_key(public_key):
-        raise ValueError(f"{server['name']}: کلید عمومی WireGuard نامعتبر است")
-    try:
-        ipaddress.IPv4Address(server['ip'])
-    except ValueError:
-        raise ValueError(f"{server['name']}: آدرس IP سرور نامعتبر است")
+        raise ConfigError('bad_public_key', f"{server['name']}: WireGuard public key is invalid")
+    _check_server_ip(server)
     if private_key and not is_valid_wg_key(private_key):
-        raise ValueError('کلید خصوصی WireGuard نامعتبر است (باید ۴۴ کاراکتر base64 باشد)')
+        raise ConfigError('bad_private_key', 'WireGuard private key is invalid (44 base64 characters)')
 
     interface = [
         '[Interface]',
@@ -419,6 +401,13 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
         '',
     ]
     return '\n'.join(lines)
+
+
+def _check_server_ip(server):
+    try:
+        ipaddress.IPv4Address(server['ip'])
+    except ValueError:
+        raise ConfigError('bad_ip', f"{server['name']}: server IP address is invalid") from None
 
 
 def safe_filename(name):
@@ -469,16 +458,13 @@ def server_label(server):
 
 
 def build_wg_link(server, private_key, obfuscation=None):
-    """لینک wg:// یک سرور. obfuscation (خروجی parse_obfuscation) اگر باشد، AmneziaWG هم اضافه می‌شود."""
+    """لینک wg:// یک سرور. obfuscation (خروجی check_obfuscation) اگر باشد، AmneziaWG هم اضافه می‌شود."""
     if not is_valid_wg_key(private_key):
-        raise ValueError('کلید خصوصی WireGuard نامعتبر است')
+        raise ConfigError('bad_private_key', 'WireGuard private key is invalid')
     public_key = server.get('wg_key', '')
     if not is_valid_wg_key(public_key):
-        raise ValueError(f"{server['name']}: کلید عمومی WireGuard نامعتبر یا موجود نیست")
-    try:
-        ipaddress.IPv4Address(server['ip'])
-    except ValueError:
-        raise ValueError(f"{server['name']}: آدرس IP سرور نامعتبر است")
+        raise ConfigError('bad_public_key', f"{server['name']}: WireGuard public key is missing or invalid")
+    _check_server_ip(server)
 
     params = [
         ('publicKey', public_key),
@@ -501,10 +487,24 @@ def qr_available():
     return qrcode is not None
 
 
+def qr_cells(matrix, side):
+    """مربع‌های تیره‌ی QR روی بوم مربعی به ضلع side پیکسل.
+
+    برمی‌گرداند (cell, rects) که rects فهرستی از (x, y, cell) با مختصات بالا-چپ است.
+    اندازه‌ی مربع‌ها عدد صحیح است تا لبه‌ها تار نشوند و دوربین بهتر بخواند؛ شکل وسط بوم می‌نشیند.
+    """
+    modules = len(matrix)
+    cell = max(1, side // modules)
+    offset = (side - cell * modules) // 2
+    rects = [(offset + col * cell, offset + row * cell, cell)
+             for row, cells in enumerate(matrix) for col, dark in enumerate(cells) if dark]
+    return cell, rects
+
+
 def qr_matrix(text):
-    """ماتریس بولی QR (True = مربع تیره) شامل حاشیه‌ی سفید؛ برای رسم در Kivy."""
+    """ماتریس بولی QR (True = مربع تیره) شامل حاشیه‌ی سفید؛ برای رسم در رابط گرافیکی."""
     if qrcode is None:
-        raise RuntimeError('بسته‌ی qrcode نصب نیست')
+        raise RuntimeError('qrcode package is not installed')
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4)
     qr.add_data(text)
     qr.make(fit=True)
