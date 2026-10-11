@@ -1,43 +1,117 @@
-name: Build Android APK
+name: Build apps
 
 on:
   workflow_dispatch:
 
+env:
+  APP_VERSION: '1.0.2'
+
 jobs:
-  build:
-    name: Build APK with flet build
+  tests:
+    name: Unit tests
     runs-on: ubuntu-22.04
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - run: pip install requests qrcode
+      - run: python -m unittest -v
 
+  android:
+    name: Android APK (${{ matrix.label }})
+    needs: tests
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: legacy-32bit
+            arch: armeabi-v7a
+          - label: modern-64bit
+            arch: arm64-v8a
+          - label: universal
+            arch: armeabi-v7a arm64-v8a x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Install Flet CLI and app dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt flet-cli==1.0.4
-
       - name: Build APK
-        run: flet build apk -v
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        run: flet build apk --arch ${{ matrix.arch }} -v
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          cp build/apk/*.apk "dist/ProtonVPN-Scanner-${APP_VERSION}-android-${{ matrix.label }}.apk"
+      - uses: actions/upload-artifact@v4
         with:
-          name: ProtonScanner-APK
-          path: build/apk/*.apk
+          name: android-${{ matrix.label }}
+          path: dist/*.apk
+
+  macos:
+    name: macOS app
+    needs: tests
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Flet CLI and app dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt flet-cli==1.0.4
+      - name: Build macOS app
+        run: flet build macos -v
+      - name: Zip app bundle
+        run: |
+          mkdir -p dist
+          app=$(ls -d build/macos/*.app | head -1)
+          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/ProtonVPN-Scanner-${APP_VERSION}-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.zip
+
+  windows:
+    name: Windows app
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Flet CLI and app dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt flet-cli==1.0.4
+      - name: Build Windows app
+        run: flet build windows -v
+      - name: Zip app folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $folder = (Get-ChildItem -Path build/windows -Directory | Select-Object -First 1).FullName
+          Compress-Archive -Path "$folder\*" -DestinationPath "dist/ProtonVPN-Scanner-$env:APP_VERSION-windows.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
