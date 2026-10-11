@@ -80,7 +80,7 @@ KV = '''
 <ResultCard>:
     orientation: 'vertical'
     size_hint_y: None
-    height: dp(118)
+    height: dp(166)
     padding: dp(10)
     spacing: dp(6)
     canvas.before:
@@ -130,6 +130,13 @@ KV = '''
         SecondaryButton:
             text: "COPY IP"
             on_release: app.copy_to_clipboard(root.ip_text, "IP copied")
+        SecondaryButton:
+            text: "COPY LINK"
+            on_release: app.copy_one_link(root.server)
+    BoxLayout:
+        size_hint_y: None
+        height: dp(36)
+        spacing: dp(8)
         SecondaryButton:
             text: "COPY WG"
             on_release: app.copy_wireguard(root.server)
@@ -817,6 +824,19 @@ class ProtonScannerApp(App):
                                   "then point the camera at this screen. The code contains your private key.")
         popup.ids.qr.matrix = matrix
         popup.open()
+
+    def copy_one_link(self, server):
+        required = self._require_key()
+        if required is None:
+            return
+        key, obfuscation = required
+        try:
+            link = core.build_wg_link(server, key, obfuscation=obfuscation)
+        except ValueError as e:
+            self.set_status(f"[color=ff3333]❌ {e}[/color]")
+            return
+        Clipboard.copy(link)
+        self.set_status(f"[color=10B981]✅ Link copied for {server['name']}[/color]")
 
     def copy_wg_links(self):
         required = self._require_key()

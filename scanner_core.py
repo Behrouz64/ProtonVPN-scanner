@@ -49,8 +49,8 @@ UNKNOWN_CC = 'UNK'
 BATCH_SIZE = 500
 SCAN_WORKERS = 8
 TOP_N = 15
-# 🎯 پینگ‌های زیر 100 میلی‌ثانیه تقلبی در نظر گرفته می‌شوند
-MIN_PLAUSIBLE_PING_MS = 100
+# پینگ‌های زیر 10 میلی‌ثانیه رد می‌شوند
+MIN_PLAUSIBLE_PING_MS = 10
 
 PROTON_UDP_PROBE = b'\x38\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
