@@ -385,6 +385,82 @@ class AmneziaWGCheckTests(unittest.TestCase):
         self.assertNotIn(VALID_KEY, str(errors))
 
 
+class MalformedDataTests(unittest.TestCase):
+    """داده‌ی خراب از پایگاه داده یا کش نباید کل برنامه را از کار بیندازد."""
+
+    def row(self, name='US#1', ip='203.0.113.7', status=1):
+        return {'Name': name, 'Status': status, 'Tier': 0, 'City': 'X',
+                'Servers': [{'EntryIP': ip, 'X25519PublicKey': VALID_KEY_2}]}
+
+    def test_row_with_non_string_name_is_skipped(self):
+        servers = core.extract_servers([self.row(name=None), self.row(name='US#2')])
+        self.assertEqual([s['name'] for s in servers], ['US#2'])
+
+    def test_row_with_invalid_ip_is_skipped(self):
+        bad = [None, 12, '999.1.1.1', 'not-an-ip', '1.2.3.4\nPostUp = x']
+        rows = [self.row(ip=ip) for ip in bad] + [self.row(name='OK#1')]
+        self.assertEqual([s['name'] for s in core.extract_servers(rows)], ['OK#1'])
+
+    def test_non_dict_item_is_skipped(self):
+        self.assertEqual(core.extract_servers(['junk', None, self.row(name='OK#2')])[0]['name'], 'OK#2')
+
+    def test_download_rejects_payload_without_server_list(self):
+        response = mock.Mock(status_code=200)
+        response.json.return_value = {'message': 'rate limited'}
+        with mock.patch.object(core.requests, 'get', return_value=response):
+            self.assertIsNone(core.download_database(['https://example.invalid/a.json']))
+
+    def test_corrupt_cache_that_is_not_a_list_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = os.path.join(tmp, 'cache.json')
+            with open(cache, 'w', encoding='utf-8') as f:
+                json.dump({'LogicalServers': 'oops'}, f)
+            data, source = core.load_database(cache, urls=[], max_age=0, now=os.path.getmtime(cache) + 1)
+        self.assertEqual((data, source), (None, 'error'))
+
+
+class PrivateFileTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = os.path.join(self.tmp.name, 'wireguard')
+        self.server = make_server('RO#9', ip='185.159.156.10')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits')
+    def test_config_files_are_owner_only(self):
+        path = core.write_wireguard_config(self.server, self.dir, VALID_KEY)
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        self.assertEqual(os.stat(self.dir).st_mode & 0o777, 0o700)
+
+    def test_placeholder_export_does_not_overwrite_a_keyed_file(self):
+        path = core.write_wireguard_config(self.server, self.dir, VALID_KEY)
+        with self.assertRaises(core.ConfigError) as ctx:
+            core.write_wireguard_config(self.server, self.dir, '')
+        self.assertEqual(ctx.exception.code, 'key_file_exists')
+        with open(path, encoding='utf-8') as f:
+            self.assertIn(f'PrivateKey = {VALID_KEY}', f.read())
+
+    def test_placeholder_file_can_be_replaced_by_a_keyed_one(self):
+        path = core.write_wireguard_config(self.server, self.dir, '')
+        core.write_wireguard_config(self.server, self.dir, VALID_KEY)
+        with open(path, encoding='utf-8') as f:
+            self.assertIn(f'PrivateKey = {VALID_KEY}', f.read())
+
+    def test_export_reports_protected_files_as_skipped(self):
+        core.write_wireguard_config(self.server, self.dir, VALID_KEY)
+        written, skipped = core.export_wireguard_configs([self.server], self.dir, '')
+        self.assertEqual((written, skipped), ([], ['RO#9']))
+
+
+class ObfuscationLimitTests(unittest.TestCase):
+    def test_huge_number_is_an_error_not_an_exception(self):
+        values = dict(core.DEFAULT_OBFUSCATION, Jc='1' * 5000)
+        _, errors = core.check_obfuscation(values)
+        self.assertEqual(errors, {'Jc': 'number'})
+
+
 class QrCellTests(unittest.TestCase):
     """هندسه‌ی QR بدون نیاز به بسته‌ی qrcode: مربع‌ها باید درون بوم و با اندازه‌ی صحیح باشند."""
 

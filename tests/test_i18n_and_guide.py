@@ -43,6 +43,20 @@ class StringCatalogueTests(unittest.TestCase):
             i18n.STRINGS['fa']['close'] = original
 
 
+class KeyUsageTests(unittest.TestCase):
+    """هر متنی که در فایل‌های رابط تعریف شده باید واقعاً نشان داده شود."""
+
+    def test_every_key_is_referenced_by_the_interface(self):
+        import os
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        source = ''
+        for name in ('main.py', 'ui_parts.py'):
+            with open(os.path.join(root, name), encoding='utf-8') as f:
+                source += f.read()
+        unused = sorted(key for key in i18n.STRINGS['en'] if f"'{key}'" not in source)
+        self.assertEqual(unused, [])
+
+
 class BidiIsolationTests(unittest.TestCase):
     def test_latin_tokens_with_punctuation_are_isolated(self):
         text = i18n.isolate_ltr('کپی لینک‌های wg://')

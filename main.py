@@ -20,6 +20,7 @@ CONFIG_ERROR_KEYS = {
     'bad_public_key': 'err_bad_public_key',
     'bad_ip': 'err_bad_ip',
     'bad_private_key': 'err_key_invalid',
+    'key_file_exists': 'err_key_file_exists',
 }
 AWG_ERROR_KEYS = {'number': 'err_awg_number', 'range': 'err_awg_range', 'order': 'err_awg_order'}
 TAB_SCAN, TAB_SERVERS, TAB_SETTINGS, TAB_GUIDE = range(4)
@@ -54,7 +55,7 @@ class ScannerApp:
         self.last_valid = []
         self.busy = False
         self.progress = (0, 1)
-        self.status = ('muted', 'db_none', {})
+        self.status = ('muted', 'load_first', {})
         self.support_dir = os.path.join(os.path.expanduser('~'), '.protonvpn-scanner')
         self.clipboard = ft.Clipboard()
         self.prefs = ft.SharedPreferences()
@@ -332,7 +333,7 @@ class ScannerApp:
         self.country_dd.disabled = busy or not loaded
         self.btn_scan.disabled = busy or not loaded
         self.btn_next.disabled = busy or self.remaining <= 0
-        self.btn_reset.disabled = busy or not has_results
+        self.btn_reset.disabled = busy or not (has_results or self.remaining or self.offset)
         done, total = self.progress
         self.progress_bar.value = done / max(total, 1)
         level, key, values = self.status
@@ -398,6 +399,19 @@ class ScannerApp:
         self.continent_dd.value = self.continent
         self.country_dd.value = self.country
         self.refresh_region_options()
+        self.reset_scan_session()
+
+    def reset_scan_position(self):
+        """NEXT را غیرفعال می‌کند؛ بعد از تغییر محدوده باید دوباره اسکن شروع شود."""
+        self.offset = 0
+        self.remaining = 0
+
+    def reset_scan_session(self):
+        """نتیجه‌ها و موقعیت اسکن را پاک می‌کند؛ برای وقتی که فهرست سرورها عوض می‌شود."""
+        self.reset_scan_position()
+        self.last_valid = []
+        self.progress = (0, 1)
+        self.status = ('ok', 'scan_reset_done', {})
 
     # ---------- رویدادهای تب‌ها و فیلترها ----------
     async def on_tab(self, e):
@@ -416,10 +430,12 @@ class ScannerApp:
         self.country = core.ALL_COUNTRIES
         self.country_dd.value = self.country
         self.country_dd.options = self.country_options()
+        self.reset_scan_position()
         self.sync()
 
     async def on_country(self, e):
         self.country = e.control.value
+        self.reset_scan_position()
         self.sync()
 
     async def on_key_change(self, e):
@@ -451,7 +467,14 @@ class ScannerApp:
             return
         self.raw_data = data
         self.loaded_once = True
-        self.update_menus()
+        try:
+            self.update_menus()
+        except Exception as exc:  # داده‌ی خراب نباید دکمه‌ها را قفل کند
+            self.index = None
+            self.all_filtered = []
+            self.set_status('error', 'load_failed')
+            self.toast('error', 'err_generic', error=str(exc))
+            return
         keys = {'cache': 'load_done_cache', 'network': 'load_done_network', 'stale-cache': 'load_done_stale'}
         self.set_status('ok', keys.get(source, 'load_done_cache'))
 
@@ -507,9 +530,12 @@ class ScannerApp:
         self.progress = (0, total)
         self.set_status('warn', 'scan_progress', total=total)
         try:
-            await asyncio.gather(*(check(server) for server in batch))
+            outcomes = await asyncio.gather(*(check(server) for server in batch), return_exceptions=True)
         finally:
             self.busy = False
+        failures = [outcome for outcome in outcomes if isinstance(outcome, Exception)]
+        if failures:
+            self.toast('error', 'err_generic', error=str(failures[0]))
 
         self.remaining = len(servers) - (self.offset + total)
         if alive:

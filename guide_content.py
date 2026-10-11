@@ -50,7 +50,7 @@ GUIDE = {
             'title': 'تب سرورها و دکمه‌های هر کارت',
             'blocks': [
                 ('p', 'تب سرورها نتیجه‌ی اسکن را نشان می‌دهد. هر سرور یک کارت جدا دارد. در بالای این تب، کادر «کلید خصوصی WireGuard» (WireGuard private key) قرار دارد و زیر آن دو دکمه هست: «خروجی ۱۵ سرور برتر (.conf)» (Export top 15 (.conf)) و «کپی لینک‌های wg://» (Copy wg:// links). این دو دکمه در بخش بعد توضیح داده شده‌اند.'),
-                ('p', 'کلید خصوصی (private key) یک رمز مخفی است و مثل رمز عبور عمل می‌کند. در بخش کلید، این یادداشت نوشته شده: «فقط در همین پنجره نگه داشته می‌شود. برنامه آن را ذخیره یا منتشر نمی‌کند.»'),
+                ('p', 'کلید خصوصی (private key) یک رمز مخفی است و مثل رمز عبور عمل می‌کند. در بخش کلید، این یادداشت نوشته شده: «فقط در همین پنجره نگه داشته می‌شود. فقط داخل فایل‌های .conf که ذخیره یا خروجی می‌گیرید نوشته می‌شود.»'),
                 ('ul', [
                     'کپی IP (Copy IP): IP سرور را کپی می‌کند. IP یعنی آدرس عددی سرور.',
                     'کپی لینک (Copy link): یک لینک wg:// فقط برای همین سرور کپی می‌کند. این دکمه به کلید خصوصی نیاز دارد.',
@@ -96,7 +96,7 @@ GUIDE = {
             'blocks': [
                 ('warn', 'هرگز کلید خصوصی خود را در چت، در عکس صفحه، در انجمن‌ها یا در GitHub به اشتراک نگذارید. هرکسی که کلید را داشته باشد، می‌تواند از کانفیگ شما استفاده کند.'),
                 ('p', 'وقتی کلید را وارد کرده باشید، این موارد همگی آن را در خود دارند: فایل‌های .conf، لینک‌های wg://، کدهای QR و متنی که با کپی WG (Copy WG) کپی شده است.'),
-                ('p', 'برنامه هرگز کلید را ذخیره نمی‌کند. کلید فقط در پنجره‌ی برنامه می‌ماند و برنامه آن را منتشر نمی‌کند.'),
+                ('p', 'برنامه کلید را در تنظیمات یا حافظه‌ی دائمی ذخیره نمی‌کند. کلید فقط در پنجره‌ی برنامه می‌ماند. تنها فایل‌های .conf که خودتان ذخیره یا خروجی می‌گیرید کلید را دارند.'),
                 ('ul', [
                     'فایل‌های .conf، لینک‌های wg:// و عکس کدهای QR را برای هیچ‌کس نفرستید.',
                     'بعد از کپی کردن کلید یا کانفیگ، کلیپ‌بورد (جایی که متن کپی‌شده نگه داشته می‌شود) را با کپی کردن چیز بی‌ضرری، مثل یک کلمه‌ی ساده، پاک کنید.',
@@ -154,7 +154,7 @@ GUIDE = {
             'title': 'محل ذخیره فایل‌ها',
             'blocks': [
                 ('p', 'فایل‌ها وقتی ذخیره می‌شوند که روی «ذخیره .conf» (Save .conf) در کارت یک سرور یا «خروجی ۱۵ سرور برتر (.conf)» (Export top 15 (.conf)) بزنید.'),
-                ('p', 'بعد از ذخیره‌ی فایل، برنامه مسیر پوشه‌ای را که فایل در آن ذخیره شده در پیام وضعیت (status) خود نشان می‌دهد. برای پیدا کردن فایل‌ها، آن پیام را بخوانید.'),
+                ('p', 'بعد از ذخیره‌ی فایل، یک پیام کوتاه پایین صفحه چند ثانیه مسیر فایل را نشان می‌دهد. همان مسیر را یادداشت کنید تا فایل را پیدا کنید.'),
                 ('p', 'کانفیگ‌هایی که پنهان‌سازی آن‌ها روشن است، در نام فایل پسوند _awg.conf دارند. کانفیگ‌هایی که پنهان‌سازی آن‌ها خاموش است، این پسوند را ندارند.'),
                 ('note', 'کپی WG (Copy WG) متن کانفیگ را در کلیپ‌بورد کپی می‌کند و فایلی نمی‌سازد.'),
                 ('warn', 'اگر کلید خصوصی خود را وارد کرده باشید، فایل ذخیره‌شده‌ی .conf محرمانه است. آن را در جای امنی نگه دارید و وقتی دیگر لازم نیست، حذفش کنید.'),
@@ -256,7 +256,7 @@ GUIDE = {
             'blocks': [
                 ('warn', 'Never share your private key in a chat, in a screenshot, on a forum, or on GitHub. Anyone who has the key can use your config.'),
                 ('p', 'Once you have entered your key, these all contain it: .conf files, wg:// links, QR codes, and text copied with Copy WG.'),
-                ('p', 'The app never saves the key. It stays only in the app window, and the app never shares it.'),
+                ('p', 'The app does not save the key in its settings, and it stays only in the app window. Only the .conf files you save or export contain it.'),
                 ('ul', [
                     'Do not send .conf files, wg:// links or QR code pictures to anyone.',
                     'After you copy the key or a config, clear the clipboard (the place where copied text is kept) by copying something harmless, such as a single word.',
@@ -314,7 +314,7 @@ GUIDE = {
             'title': 'Where files are saved',
             'blocks': [
                 ('p', 'Files are saved when you press Save .conf on a server card, or Export top 15 (.conf).'),
-                ('p', 'After a file is saved, the app shows the folder it was saved to in its status message. Read that message to find your files.'),
+                ('p', 'After a file is saved, a short message at the bottom of the screen shows its path for a few seconds. Write the path down so you can find the file.'),
                 ('p', 'Configs made with obfuscation on have the suffix _awg.conf in their file names. Configs made with obfuscation off do not have this suffix.'),
                 ('note', 'Copy WG copies the config text to the clipboard. It does not create a file.'),
                 ('warn', 'If you have entered your private key, a saved .conf file is secret. Keep it in a safe place, and delete it when you no longer need it.'),

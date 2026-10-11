@@ -90,7 +90,9 @@ def download_database(urls=GITHUB_MIRRORS, timeout=DOWNLOAD_TIMEOUT_S):
             data = resp.json()
         except (requests.RequestException, ValueError):
             continue
-        return data.get("LogicalServers", data) if isinstance(data, dict) else data
+        servers = data.get("LogicalServers") if isinstance(data, dict) else data
+        if isinstance(servers, list):
+            return servers
     return None
 
 
@@ -104,9 +106,10 @@ def _cache_age(path, now):
 def _read_cache(path):
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
     except (OSError, ValueError):
         return None
+    return data if isinstance(data, list) else None  # کش خراب نباید وارد برنامه شود
 
 
 def _write_cache(path, data):
@@ -144,11 +147,24 @@ def country_code(name):
     return match.group(1) if match else UNKNOWN_CC
 
 
+def _is_ipv4(value):
+    if not isinstance(value, str):
+        return False
+    try:
+        ipaddress.IPv4Address(value)
+    except ValueError:
+        return False
+    return True
+
+
 def extract_servers(raw_data):
-    """تبدیل داده خام به لیست سرورهای فعال با IP ورودی و کلید عمومی WireGuard."""
+    """تبدیل داده خام به لیست سرورهای فعال با IP ورودی و کلید عمومی WireGuard.
+
+    ردیف‌هایی که نام یا IP معتبر ندارند کنار گذاشته می‌شوند تا یک ردیف خراب کل اسکن را خراب نکند.
+    """
     servers = []
     for item in raw_data or []:
-        if item.get('Status') != 1:
+        if not isinstance(item, dict) or item.get('Status') != 1:
             continue
         try:
             entry = item['Servers'][0]
@@ -157,6 +173,8 @@ def extract_servers(raw_data):
             continue
 
         name = item.get('Name', 'Unknown')
+        if not isinstance(name, str) or not _is_ipv4(ip):
+            continue
         servers.append({
             'name': name,
             'ip': ip,
@@ -323,8 +341,8 @@ DEFAULT_OBFUSCATION = {'Jc': 4, 'Jmin': 50, 'Jmax': 1000, 'S1': 0, 'S2': 0,
 
 AWG_H_KEYS = ('H1', 'H2', 'H3', 'H4')
 AWG_UINT32_MAX = 2 ** 32 - 1
-_AWG_UINT_RE = re.compile(r'\d+')
-_AWG_H_RE = re.compile(r'(\d+)(?:-(\d+))?')
+_AWG_UINT_RE = re.compile(r'\d{1,9}')  # حد طول، هم از تبدیل عدد خیلی بزرگ جلوگیری می‌کند هم از پیام خطای کتابخانه
+_AWG_H_RE = re.compile(r'(\d{1,10})(?:-(\d{1,10}))?')
 PERSISTENT_KEEPALIVE = 25
 
 
@@ -414,13 +432,40 @@ def safe_filename(name):
     return re.sub(r'[^A-Za-z0-9_-]+', '_', name).strip('_') or 'server'
 
 
+PRIVATE_FILE_MODE = 0o600
+PRIVATE_DIR_MODE = 0o700
+
+
+def _holds_private_key(path):
+    """True اگر فایل از قبل کلید خصوصی واقعی داشته باشد (نه جای‌نگهدار)."""
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except (OSError, UnicodeDecodeError):
+        return False
+    match = re.search(r'^PrivateKey = (.+)$', text, re.MULTILINE)
+    return bool(match) and match.group(1).strip() != PRIVATE_KEY_PLACEHOLDER
+
+
+def _write_private_file(path, text):
+    """فایل را فقط برای صاحب حساب قابل خواندن می‌نویسد، چون کلید خصوصی داخل آن است."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_FILE_MODE)
+    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+    os.chmod(path, PRIVATE_FILE_MODE)  # اگر فایل از قبل با مجوز بازتر ساخته شده بود، اصلاح می‌شود
+
+
 def write_wireguard_config(server, directory, private_key='', obfuscation=None):
-    os.makedirs(directory, exist_ok=True)
+    os.makedirs(directory, mode=PRIVATE_DIR_MODE, exist_ok=True)
+    os.chmod(directory, PRIVATE_DIR_MODE)
     conf = build_wireguard_config(server, private_key, obfuscation=obfuscation)
     suffix = '_awg' if obfuscation else ''
     path = os.path.join(directory, safe_filename(server['name']) + suffix + '.conf')
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(conf)
+    # بدون کلید، فایل جای‌نگهدار می‌گیرد؛ اگر نسخه‌ی کلیددار از قبل هست، آن را پاک نمی‌کنیم
+    if not private_key and _holds_private_key(path):
+        raise ConfigError('key_file_exists',
+                          f"{server['name']}: a config with a private key already exists and was not overwritten")
+    _write_private_file(path, conf)
     return path
 
 
