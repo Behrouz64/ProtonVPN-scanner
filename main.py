@@ -9,11 +9,18 @@ import traceback
 
 import flet as ft
 
-import app_settings
-import guide_content
-import i18n
-import scanner_core as core
-import ui_parts as ui
+# اگر یکی از ماژول‌ها بارگذاری نشود (مثلاً یک پکیج که در APK نیست)، متن خطا روی صفحه نشان داده می‌شود
+# و برنامه بی‌صدا با صفحه‌ی سیاه متوقف نمی‌شود.
+try:
+    import app_settings
+    import guide_content
+    import i18n
+    import scanner_core as core
+    import ui_parts as ui
+except Exception:
+    IMPORT_ERROR = traceback.format_exc()
+else:
+    IMPORT_ERROR = None
 
 SETTINGS_KEY = 'settings'
 CONFIG_ERROR_KEYS = {
@@ -775,8 +782,13 @@ class ScannerApp:
 
 
 async def main(page: ft.Page):
-    app = ScannerApp(page)
-    try:
+    if IMPORT_ERROR:  # ui بارگذاری نشده، پس رنگ‌ها مستقیم نوشته شده‌اند
+        page.bgcolor = '#1C1B24'
+        page.add(ft.Text('Import error:\n' + IMPORT_ERROR[-1500:], color='#FF5C6C', selectable=True))
+        page.update()
+        return
+    try:  # ساخت ScannerApp هم داخل try است تا خطای آن هم روی صفحه بیاید
+        app = ScannerApp(page)
         await app.start()
     except Exception:  # اگر راه‌اندازی شکست خورد، صفحه‌ی خالی نماند و خطا نشان داده شود
         page.controls.clear()
