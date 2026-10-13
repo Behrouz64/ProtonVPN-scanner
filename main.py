@@ -183,8 +183,10 @@ class ScannerApp:
             ),
         )
         page.controls.clear()
-        page.add(ft.Container(content=ft.Column([header, self.body], spacing=0, expand=True),
-                              padding=ft.Padding.symmetric(horizontal=16), expand=True))
+        # SafeArea زیر ساعت و جزیره‌ی دوربین آیفون (و نوار بالای اندروید) را خالی می‌گذارد
+        page.add(ft.SafeArea(content=ft.Container(content=ft.Column([header, self.body], spacing=0, expand=True),
+                                                  padding=ft.Padding.symmetric(horizontal=16), expand=True),
+                             expand=True))
         self.sync()
 
     def current_tab(self):
