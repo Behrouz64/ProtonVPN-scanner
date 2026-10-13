@@ -12,3 +12,6 @@ dependencies = [
 
 [tool.flet]
 product = "ProtonVPN Scanner"
+
+[tool.flet.app]
+exclude = ["docs", "tests", "README.md"]
