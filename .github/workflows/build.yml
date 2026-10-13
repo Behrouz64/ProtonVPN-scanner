@@ -91,7 +91,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt flet-cli==1.0.4
       - name: Build unsigned archive
-        run: flet build ipa --no-codesign --yes -v
+        run: flet build ipa --yes -v
       - name: Package IPA from the archive
         run: |
           ARCHIVE=$(find build -maxdepth 3 -name "*.xcarchive" | head -n 1)
