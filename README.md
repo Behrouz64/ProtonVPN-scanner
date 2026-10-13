@@ -4,6 +4,12 @@
 
 > ابزاری غیررسمی است و ارتباطی با Proton AG ندارد.
 
+## منابع رسمی و هشدار
+
+- منبع رسمی این برنامه فقط همین مخزن GitHub است: `https://github.com/Behrouz64/ProtonVPN-scanner`. فایل‌ها را فقط از build‌های بخش Actions همین مخزن دانلود کنید.
+- نسخه‌هایی که با همین نام از جای دیگری پخش می‌شوند ممکن است تغییر کرده یا ناامن باشند. نویسنده مسئول آن‌ها نیست.
+- [سیاست حریم خصوصی](docs/PRIVACY.md) و [گزارش امنیتی](.github/SECURITY.md).
+
 ## اجرا روی macOS
 
 ### ۱. نصب Python 3.11
@@ -60,7 +66,7 @@ python main.py
 
 سروری که «سالم» نشان داده می‌شود فقط از غربالگری پینگ اولیه گذشته است. برای اطمینان، لینک‌ها یا فایل‌های `.conf` را در یک کلاینت واقعی مثل Shadowrocket یا AmneziaVPN تست کنید. لینک‌های این برنامه‌ها (از جمله Hiddify برای Android، Windows، macOS و iPhone) و توضیح بیشتر در تب **راهنما** است.
 
-کلید خصوصی فقط در همان پنجره نگه داشته می‌شود و برنامه آن را ذخیره یا منتشر نمی‌کند. کلید را در چت، عکس صفحه یا فروم نفرستید.
+کلید خصوصی در تنظیمات برنامه ذخیره نمی‌شود و فقط در حافظه‌ی همان اجرا نگه داشته می‌شود. تنها وقتی کانفیگ یا فایل `.conf` صادر کنید، کلید داخل آن فایل نوشته می‌شود؛ آن فایل را منتشر نکنید و کلید را در چت، عکس صفحه یا فروم نفرستید.
 
 ## ساختار پروژه
 
@@ -72,7 +78,8 @@ python main.py
 | `guide_content.py` | متن راهنمای داخلی به دو زبان |
 | `app_settings.py` | ذخیره‌ی تنظیمات (زبان و AmneziaWG) بدون کلید خصوصی |
 | `scanner_core.py` | منطق بدون وابستگی به رابط: دیتابیس، فیلترها، پینگ، کانفیگ، لینک و QR |
-| `assets/fonts/` | فونت وزیرمتن (SIL OFL) برای حروف فارسی |
+| `assets/` | فایل‌های داخل برنامه: فونت وزیرمتن (SIL OFL) و آیکون |
+| `docs/` | سیاست حریم خصوصی و یادداشت‌های ساخت (داخل بسته‌ی برنامه نمی‌آید) |
 | `tests/` | تست‌های واحد |
 | `pyproject.toml` | نسخه و تنظیمات `flet build` |
 
@@ -98,6 +105,8 @@ workflow با نام `Build apps` را از تب Actions به صورت دستی 
 
 ProtonVPN Scanner finds ProtonVPN servers that answer quickly from your network, then builds WireGuard or AmneziaWG configs, `wg://` links and QR codes for them. The interface is bilingual (فارسی / English), and the full guide, including how to get your WireGuard private key from Proton, is in the **Guide** tab inside the app.
 
+**Official source:** this repository only (`https://github.com/Behrouz64/ProtonVPN-scanner`). Download builds only from its Actions runs. Modified copies published under the same name may be unsafe, and the author is not responsible for them.
+
 Run it on macOS:
 
 ```bash
@@ -109,4 +118,11 @@ python main.py
 
 A server shown as alive has only passed the first ping screen. Test the configs in a real client such as Shadowrocket, AmneziaVPN or Hiddify; the Guide tab has the links.
 
-Turn the VPN off before scanning. Never share your private key. This is an unofficial tool and is not affiliated with Proton AG.
+| Android build | Phones |
+| --- | --- |
+| `android-modern-64bit` | 64-bit (arm64) |
+| `android-universal` | arm64 and x86_64 (emulators) |
+
+32-bit (armeabi-v7a) is not supported.
+
+Turn the VPN off before scanning. Never share your private key; exported `.conf` files contain it. The app has no telemetry. See [docs/PRIVACY.md](docs/PRIVACY.md) and [.github/SECURITY.md](.github/SECURITY.md). This is an unofficial tool and is not affiliated with Proton AG.
