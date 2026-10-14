@@ -2,6 +2,8 @@
 
 رنگ‌ها حس بصری ProtonVPN را دارند (بنفش تیره با دکمه‌های بنفش)؛ این برنامه غیررسمی است.
 """
+import os
+
 import flet as ft
 import flet.canvas as cv
 
@@ -120,17 +122,32 @@ def secondary_button(label, on_click, icon=None, danger=False, expand=True, size
     )
 
 
+FLAGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'flags')
+
+
+def flag(cc, size=20):
+    """پرچم کشور از assets/flags. اگر پرچمی برای کد نبود، آیکون کره‌ی زمین نشان داده می‌شود."""
+    code = (cc or '').lower()
+    if code and os.path.exists(os.path.join(FLAGS_DIR, f'{code}.png')):
+        return ft.Image(src=f'flags/{code}.png', width=size * 4 // 3, height=size, fit=ft.BoxFit.COVER,
+                        border_radius=3)
+    return ft.Icon(ft.Icons.PUBLIC, size=size, color=TEXT_MUTED)
+
+
 def result_card(server, label, actions):
     """کارت یک سرور. actions نگاشت نام عمل به تابع کلیک است: ip, link, wg, qr, save."""
     aliases = server.get('aliases') or []
     name = server['name'] + (f" (+{len(aliases)})" if aliases else '')
+    marker = core.PROVIDER_MARKERS.get(server.get('provider', core.PROVIDER_PROTON), '')
     return card(
         ft.Row(
             [
-                ft.Text(name, size=16, weight=ft.FontWeight.BOLD, color=TEXT, expand=True),
+                flag(server.get('cc')),
+                ft.Text(f"{marker} {name}".strip(), size=16, weight=ft.FontWeight.BOLD, color=TEXT, expand=True),
                 pill(ltr(f"{server['ping']} ms"), ping_color(server['ping'])),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            spacing=10,
         ),
         ft.Text(ltr(f"{server['ip']}  •  {server['proto']}"), size=12, color=TEXT_MUTED),
         ft.Row(

@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 
 import requests
 
+import surfshark_core
+
 try:
     import qrcode
 except ImportError:  # qrcode فقط برای نمایش QR لازم است
@@ -53,6 +55,13 @@ WG_ALLOWED_IPS = '0.0.0.0/0, ::/0'
 PRIVATE_KEY_PLACEHOLDER = '<PASTE_YOUR_PRIVATE_KEY>'
 _WG_KEY_RE = re.compile(r'[A-Za-z0-9+/]{43}=')
 
+# ---------- سرویس‌ها ----------
+PROVIDER_PROTON = 'proton'
+PROVIDER_SURFSHARK = 'surfshark'
+# نشانه‌ی هر سرویس در نام کانفیگ‌ها: فقط ایموجی، بدون نام یا لوگوی برند
+PROVIDER_MARKERS = {PROVIDER_PROTON: '🟣', PROVIDER_SURFSHARK: '🦈'}
+SURFSHARK_CATALOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'surfshark', 'servers.json')
+
 CC_TO_NAME = {
     'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'CR': 'Costa Rica', 'PA': 'Panama', 'PR': 'Puerto Rico',
     'DE': 'Germany', 'NL': 'Netherlands', 'CH': 'Switzerland', 'FR': 'France', 'UK': 'United Kingdom', 'GB': 'Great Britain',
@@ -66,13 +75,15 @@ CC_TO_NAME = {
     'BR': 'Brazil', 'AR': 'Argentina', 'CO': 'Colombia', 'CL': 'Chile', 'PE': 'Peru', 'EC': 'Ecuador', 'VE': 'Venezuela',
     'UY': 'Uruguay', 'PY': 'Paraguay',
     'ZA': 'South Africa', 'EG': 'Egypt', 'NG': 'Nigeria', 'KE': 'Kenya', 'MA': 'Morocco', 'DZ': 'Algeria', 'TN': 'Tunisia',
+    'AD': 'Andorra', 'AM': 'Armenia', 'AZ': 'Azerbaijan', 'BA': 'Bosnia and Herzegovina', 'BS': 'Bahamas',
+    'HR': 'Croatia', 'MM': 'Myanmar', 'SI': 'Slovenia',
     'AU': 'Australia', 'NZ': 'New Zealand', 'UNK': 'Unknown'
 }
 
 CONTINENTS = {
-    'North America': ['US', 'CA', 'MX', 'CR', 'PA', 'PR'],
-    'Europe': ['DE', 'NL', 'CH', 'FR', 'UK', 'GB', 'SE', 'IT', 'ES', 'PL', 'RO', 'IS', 'DK', 'NO', 'FI', 'IE', 'PT', 'AT', 'CZ', 'SK', 'HU', 'GR', 'BG', 'RS', 'MD', 'UA', 'EE', 'LV', 'LT', 'BE', 'LU', 'AL', 'MK'],
-    'Asia': ['JP', 'SG', 'HK', 'KR', 'TW', 'IL', 'AE', 'IN', 'MY', 'VN', 'TH', 'ID', 'PH', 'KH', 'MN', 'GE', 'CY', 'TR', 'KZ'],
+    'North America': ['US', 'CA', 'MX', 'CR', 'PA', 'PR', 'BS'],
+    'Europe': ['DE', 'NL', 'CH', 'FR', 'UK', 'GB', 'SE', 'IT', 'ES', 'PL', 'RO', 'IS', 'DK', 'NO', 'FI', 'IE', 'PT', 'AT', 'CZ', 'SK', 'HU', 'GR', 'BG', 'RS', 'MD', 'UA', 'EE', 'LV', 'LT', 'BE', 'LU', 'AL', 'MK', 'AD', 'BA', 'HR', 'SI'],
+    'Asia': ['JP', 'SG', 'HK', 'KR', 'TW', 'IL', 'AE', 'IN', 'MY', 'VN', 'TH', 'ID', 'PH', 'KH', 'MN', 'GE', 'CY', 'TR', 'KZ', 'AM', 'AZ', 'MM'],
     'South America': ['BR', 'AR', 'CO', 'CL', 'PE', 'EC', 'VE', 'UY', 'PY'],
     'Africa': ['ZA', 'EG', 'NG', 'KE', 'MA', 'DZ', 'TN'],
     'Oceania': ['AU', 'NZ']
@@ -182,6 +193,8 @@ def extract_servers(raw_data):
             'city': item.get('City', '') or '',
             'free': item.get('Tier', 0) == 0,
             'wg_key': entry.get('X25519PublicKey', '') or '',
+            'port': WG_PORT,
+            'provider': PROVIDER_PROTON,
         })
     return servers
 
@@ -200,6 +213,77 @@ def dedupe_endpoints(servers):
         else:
             groups[identity]['aliases'].append(server['name'])
     return list(groups.values())
+
+
+# ---------- حساب کاربر و فهرست Surfshark ----------
+@dataclass(frozen=True)
+class WgIdentity:
+    """کلید خصوصی و آدرس تونل یک حساب. برای Proton فقط کلید وارد می‌شود؛ آدرس و DNS پیش‌فرض است."""
+    private_key: str
+    address: str = WG_ADDRESS
+    dns: str = WG_DNS
+
+
+_HOST_RE = re.compile(r'(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}')
+
+
+def _is_hostname(value):
+    return isinstance(value, str) and len(value) <= 253 and _HOST_RE.fullmatch(value) is not None
+
+
+def load_surfshark_catalog(path=SURFSHARK_CATALOG_FILE):
+    """فهرست سرورهای Surfshark از فایل همراه برنامه. فقط نام میزبان و کلید عمومی سرور در آن است."""
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+    servers = []
+    for item in data.get('servers', []):
+        host = item.get('hostname', '')
+        key = item.get('public_key', '')
+        code = item.get('country_code', '')
+        if not _is_hostname(host) or not is_valid_wg_key(key) or not re.fullmatch(r'[A-Z]{2}', code):
+            continue
+        city = item.get('city', '') or ''
+        servers.append({
+            'name': f"{code}-{city}" if city else code,
+            'ip': host,
+            'cc': code,
+            'city': city,
+            'free': False,
+            'wg_key': key,
+            'port': int(item.get('port') or WG_PORT),
+            'provider': PROVIDER_SURFSHARK,
+        })
+    return servers
+
+
+def parse_surfshark_conf(text):
+    """کلید خصوصی، آدرس و DNS از فایل .conf که کاربر از Surfshark گرفته است.
+
+    فقط بخش [Interface] خوانده می‌شود. کلید عمومی سرورها از فهرست برنامه می‌آید و نیازی به فایل ندارد.
+    """
+    section = ''
+    values = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('[') and line.endswith(']'):
+            section = line[1:-1].strip().lower()
+            continue
+        if section != 'interface' or '=' not in line:
+            continue
+        key, value = (part.strip() for part in line.split('=', 1))
+        values.setdefault(key.lower(), value)
+
+    private_key = values.get('privatekey', '')
+    if not is_valid_wg_key(private_key):
+        raise ConfigError('bad_private_key', 'WireGuard private key is invalid (44 base64 characters)')
+    address = values.get('address', '').split(',')[0].strip()
+    try:
+        ipaddress.ip_interface(address)
+    except ValueError:
+        raise ConfigError('bad_address', 'WireGuard address is missing or invalid') from None
+    return WgIdentity(private_key=private_key, address=address, dns=values.get('dns', '') or WG_DNS)
 
 
 def filter_by_tier(servers, mode):
@@ -312,6 +396,14 @@ def smart_ping(ip, timeout=1.5):
     return min(candidates)
 
 
+def probe_server(server, private_key=''):
+    """(ms, برچسب) برای یک سرور. Proton با پینگ TCP/UDP و Surfshark با Handshake واقعی سنجیده می‌شود."""
+    if server.get('provider') == PROVIDER_SURFSHARK:
+        return surfshark_core.handshake_rtt(server['ip'], server['wg_key'], private_key,
+                                            port=server.get('port', WG_PORT))
+    return smart_ping(server['ip'])
+
+
 # ---------- نتایج ----------
 def merge_results(existing, new):
     """نتایج را بر اساس میزبان (IP + کلید) یکتا می‌کند؛ مقدار جدیدتر جایگزین می‌شود."""
@@ -396,7 +488,7 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
         raise ConfigError('no_public_key', f"{server['name']}: no WireGuard public key in the database")
     if not is_valid_wg_key(public_key):
         raise ConfigError('bad_public_key', f"{server['name']}: WireGuard public key is invalid")
-    _check_server_ip(server)
+    _check_server_host(server)
     if private_key and not is_valid_wg_key(private_key):
         raise ConfigError('bad_private_key', 'WireGuard private key is invalid (44 base64 characters)')
 
@@ -414,18 +506,27 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
         '[Peer]',
         f'PublicKey = {public_key}',
         f'AllowedIPs = {WG_ALLOWED_IPS}',
-        f'Endpoint = {server["ip"]}:{WG_PORT}',
+        f'Endpoint = {server["ip"]}:{server.get("port", WG_PORT)}',
         f'PersistentKeepalive = {PERSISTENT_KEEPALIVE}',
         '',
     ]
     return '\n'.join(lines)
 
 
-def _check_server_ip(server):
-    try:
-        ipaddress.IPv4Address(server['ip'])
-    except ValueError:
-        raise ConfigError('bad_ip', f"{server['name']}: server IP address is invalid") from None
+def _check_server_host(server):
+    """IPv4 برای Proton و نام میزبان برای Surfshark (در Endpoint همان مقدار استفاده می‌شود)."""
+    if server.get('provider') == PROVIDER_SURFSHARK:
+        valid = _is_hostname(server['ip'])
+    else:
+        valid = _is_ipv4(server['ip'])
+    if not valid:
+        raise ConfigError('bad_ip', f"{server['name']}: server address is invalid")
+
+
+def config_file_stem(server, suffix=''):
+    """نام فایل کانفیگ: پیشوند سرویس به نام اضافه می‌شود تا کانفیگ‌های دو سرویس با هم قاطی نشوند."""
+    provider = server.get('provider', PROVIDER_PROTON)
+    return f"{provider}_{safe_filename(server['name'])}{suffix}"
 
 
 def safe_filename(name):
@@ -455,12 +556,12 @@ def _write_private_file(path, text):
     os.chmod(path, PRIVATE_FILE_MODE)  # اگر فایل از قبل با مجوز بازتر ساخته شده بود، اصلاح می‌شود
 
 
-def write_wireguard_config(server, directory, private_key='', obfuscation=None):
+def write_wireguard_config(server, directory, private_key='', obfuscation=None,
+                           address=WG_ADDRESS, dns=WG_DNS):
     os.makedirs(directory, mode=PRIVATE_DIR_MODE, exist_ok=True)
     os.chmod(directory, PRIVATE_DIR_MODE)
-    conf = build_wireguard_config(server, private_key, obfuscation=obfuscation)
-    suffix = '_awg' if obfuscation else ''
-    path = os.path.join(directory, safe_filename(server['name']) + suffix + '.conf')
+    conf = build_wireguard_config(server, private_key, address=address, dns=dns, obfuscation=obfuscation)
+    path = os.path.join(directory, config_file_stem(server, '_awg' if obfuscation else '') + '.conf')
     # بدون کلید، فایل جای‌نگهدار می‌گیرد؛ اگر نسخه‌ی کلیددار از قبل هست، آن را پاک نمی‌کنیم
     if not private_key and _holds_private_key(path):
         raise ConfigError('key_file_exists',
@@ -469,12 +570,14 @@ def write_wireguard_config(server, directory, private_key='', obfuscation=None):
     return path
 
 
-def export_wireguard_configs(servers, directory, private_key='', obfuscation=None):
+def export_wireguard_configs(servers, directory, private_key='', obfuscation=None,
+                             address=WG_ADDRESS, dns=WG_DNS):
     """برمی‌گرداند (مسیرهای نوشته‌شده, نام سرورهای رد‌شده)."""
     written, skipped = [], []
     for server in servers:
         try:
-            written.append(write_wireguard_config(server, directory, private_key, obfuscation))
+            written.append(write_wireguard_config(server, directory, private_key, obfuscation,
+                                                  address=address, dns=dns))
         except ValueError:
             skipped.append(server['name'])
     return written, skipped
@@ -496,26 +599,27 @@ def country_flag(cc):
 
 
 def server_label(server):
-    """نام نمایشی لینک، مثل: 🇦🇱 Albania — Tirana (203.0.113.7)"""
+    """نام نمایشی لینک: نشانه‌ی سرویس، پرچم و مکان، مثل: 🦈 🇩🇪 Germany — Berlin (de-ber.prod.surfshark.com)"""
+    marker = PROVIDER_MARKERS.get(server.get('provider', PROVIDER_PROTON), '')
     country = CC_TO_NAME.get(server['cc'], server['cc'])
     place = f"{country} — {server['city']}" if server.get('city') else country
-    return f"{country_flag(server['cc'])} {place} ({server['ip']})".strip()
+    return f"{marker} {country_flag(server['cc'])} {place} ({server['ip']})".strip()
 
 
-def build_wg_link(server, private_key, obfuscation=None):
+def build_wg_link(server, private_key, obfuscation=None, address=WG_ADDRESS, dns=WG_DNS):
     """لینک wg:// یک سرور. obfuscation (خروجی check_obfuscation) اگر باشد، AmneziaWG هم اضافه می‌شود."""
     if not is_valid_wg_key(private_key):
         raise ConfigError('bad_private_key', 'WireGuard private key is invalid')
     public_key = server.get('wg_key', '')
     if not is_valid_wg_key(public_key):
         raise ConfigError('bad_public_key', f"{server['name']}: WireGuard public key is missing or invalid")
-    _check_server_ip(server)
+    _check_server_host(server)
 
     params = [
         ('publicKey', public_key),
         ('privateKey', private_key),
-        ('ip', WG_LINK_ADDRESS),
-        ('dns', WG_DNS),
+        ('ip', address.split('/')[0]),
+        ('dns', dns),
         ('mtu', WG_LINK_MTU),
         ('udp', 1),
         ('keepalive', PERSISTENT_KEEPALIVE),
@@ -525,7 +629,8 @@ def build_wg_link(server, private_key, obfuscation=None):
         params += [('obfs', 'amneziawg'), ('obfsParam', json.dumps(values, separators=(',', ':')))]
 
     query = '&'.join(f"{key}={quote(str(value), safe='/')}" for key, value in params)
-    return f"{WG_LINK_PREFIX}{server['ip']}:{WG_PORT}?{query}#{quote(server_label(server), safe='')}"
+    return (f"{WG_LINK_PREFIX}{server['ip']}:{server.get('port', WG_PORT)}?{query}"
+            f"#{quote(server_label(server), safe='')}")
 
 
 def qr_available():

@@ -63,6 +63,9 @@ python main.py
 3. **اسکن**: VPN را کامل خاموش کنید، سپس `شروع اسکن (۵۰۰)` را بزنید. سرورهایی که پینگشان زیر ۱۰ میلی‌ثانیه است حذف می‌شوند.
 4. **سرورها**: کلید خصوصی WireGuard را وارد کنید. برای هر سرور می‌توانید IP، لینک `wg://`، کانفیگ، کد QR یا فایل `.conf` بگیرید.
 5. **تنظیمات**: زبان، روشن یا خاموش بودن پنهان‌سازی AmneziaWG و بازگردانی مقادیر پیشنهادی.
+6. **Surfshark**: در تب اسکن، سرویس **Surfshark** را انتخاب کنید (در فیلتر، «همه» خودکار انتخاب می‌شود). سپس در تب **سرورها** متن فایل WireGuard خودتان از Surfshark را بچسبانید. فقط بخش `[Interface]` خوانده می‌شود، متن پس از خواندن پاک می‌شود و کلید فقط در حافظه‌ی برنامه می‌ماند. فهرست سرورها در `assets/surfshark/servers.json` است و با `tools/build_surfshark_catalog.py` به‌روز می‌شود. برای تست هر سرور، برنامه یک پیام Handshake واقعی WireGuard به پورت UDP 51820 می‌فرستد و فقط سرورهایی که پاسخ بدهند نشان داده می‌شوند.
+
+در نام کانفیگ‌ها و لینک‌های `wg://` نشانه‌ی سرویس می‌آید: 🟣 یعنی Proton و 🦈 یعنی Surfshark. پرچم هر کشور هم کنار سرور نمایش داده می‌شود.
 
 سروری که «سالم» نشان داده می‌شود فقط از غربالگری پینگ اولیه گذشته است. برای اطمینان، لینک‌ها یا فایل‌های `.conf` را در یک کلاینت واقعی مثل Shadowrocket یا AmneziaVPN تست کنید. لینک‌های این برنامه‌ها (از جمله Hiddify برای Android، Windows، macOS و iPhone) و توضیح بیشتر در تب **راهنما** است.
 
@@ -78,6 +81,11 @@ python main.py
 | `guide_content.py` | متن راهنمای داخلی به دو زبان |
 | `app_settings.py` | ذخیره‌ی تنظیمات (زبان و AmneziaWG) بدون کلید خصوصی |
 | `scanner_core.py` | منطق بدون وابستگی به رابط: دیتابیس، فیلترها، پینگ، کانفیگ، لینک و QR |
+| `surfshark_core.py` | تست UDP سرورهای Surfshark با پیام Handshake واقعی |
+| `wg_crypto.py` | ساخت پیام Handshake با کتابخانه‌ی استاندارد پایتون (بدون وابستگی به `cryptography`) |
+| `assets/surfshark/servers.json` | فهرست سرورهای Surfshark (فقط کلید عمومی و نام میزبان) |
+| `assets/flags/` | پرچم کشورها به صورت PNG (مجوز MIT، از `flag-icons`) |
+| `tools/` | ابزارهای توسعه برای ساخت فهرست Surfshark و پرچم‌ها (داخل برنامه نمی‌آید) |
 | `assets/` | فایل‌های داخل برنامه: فونت وزیرمتن (SIL OFL) و آیکون |
 | `docs/` | سیاست حریم خصوصی و یادداشت‌های ساخت (داخل بسته‌ی برنامه نمی‌آید) |
 | `tests/` | تست‌های واحد |
@@ -124,5 +132,7 @@ A server shown as alive has only passed the first ping screen. Test the configs 
 | `android-universal` | arm64 and x86_64 (emulators) |
 
 32-bit (armeabi-v7a) is not supported.
+
+**Surfshark:** choose Surfshark in the scan tab, then paste the text of your own Surfshark WireGuard file in the Servers tab. Only `[Interface]` is read, the text is cleared after it is read, and the key stays in memory. Proton entries are marked 🟣 and Surfshark entries 🦈 in config names and `wg://` links; country flags are shown next to each server.
 
 Turn the VPN off before scanning. Never share your private key; exported `.conf` files contain it. The app has no telemetry. See [docs/PRIVACY.md](docs/PRIVACY.md) and [.github/SECURITY.md](.github/SECURITY.md). This is an unofficial tool and is not affiliated with Proton AG.

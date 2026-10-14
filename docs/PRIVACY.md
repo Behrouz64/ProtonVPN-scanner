@@ -15,6 +15,7 @@
 ## کلید خصوصی
 
 - کلید فقط در حافظه‌ی همان اجرای برنامه نگه داشته می‌شود و با بستن برنامه پاک می‌شود.
+- برای Surfshark، متن فایل `.conf` که می‌چسبانید پس از خوانده شدن از کادر پاک می‌شود. فقط بخش `[Interface]` خوانده می‌شود و هیچ‌جا ذخیره نمی‌شود.
 - وقتی کانفیگ، لینک `wg://` یا کد QR می‌سازید، کلید داخل آن قرار می‌گیرد. هر کسی به آن دسترسی داشته باشد می‌تواند از آن استفاده کند.
 - اگر فکر می‌کنید کلید لو رفته، آن را در حساب Proton خود دوباره بسازید.
 
@@ -24,7 +25,8 @@
   - `https://fastly.jsdelivr.net/gh/tn3w/ProtonVPN-IPs@master/protonvpn_logicals.json`
   - `https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
   - `https://gh-proxy.com/https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
-- **پینگ** به IP سرورها روی TCP 443 و UDP 80.
+- **پینگ** به IP سرورهای Proton روی TCP 443 و UDP 80.
+- **تست Surfshark:** یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Surfshark. هیچ ورود به حساب Surfshark و هیچ خواندن API انجام نمی‌شود. فهرست سرورهای Surfshark از فایل همراه برنامه خوانده می‌شود و از اینترنت دانلود نمی‌شود.
 - **باز کردن لینک‌ها** (راهنما، کانال Telegram، صفحه‌ی X) فقط با مرورگر شما انجام می‌شود.
 
 ## آنچه جمع‌آوری یا ارسال نمی‌شود

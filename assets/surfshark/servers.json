@@ -1,0 +1,614 @@
+{
+  "source": "Surfshark server list",
+  "count": 76,
+  "servers": [
+    {
+      "hostname": "al-tia.prod.surfshark.com",
+      "country": "Albania",
+      "country_code": "AL",
+      "city": "Tirana",
+      "port": 51820,
+      "public_key": "l8EOWPyzt/njrb74CADY4VOhns/TbUN6KFTbytHcFQw="
+    },
+    {
+      "hostname": "de-ber.prod.surfshark.com",
+      "country": "Germany",
+      "country_code": "DE",
+      "city": "Berlin",
+      "port": 51820,
+      "public_key": "d3ldwEjnFcbLwD1o8uC5xC3DaSNek8DGeTpOb/h/IE4="
+    },
+    {
+      "hostname": "de-fra.prod.surfshark.com",
+      "country": "Germany",
+      "country_code": "DE",
+      "city": "Frankfurt",
+      "port": 51820,
+      "public_key": "fJDA+OA6jzQxfRcoHfC27xz7m3C8/590fRjpntzSpGo="
+    },
+    {
+      "hostname": "nl-ams.prod.surfshark.com",
+      "country": "Netherlands",
+      "country_code": "NL",
+      "city": "Amsterdam",
+      "port": 51820,
+      "public_key": "Lxg3jAOKcBA9tGBtB6vEWMFl5LUEB6AwOpuniYn1cig="
+    },
+    {
+      "hostname": "uk-lon.prod.surfshark.com",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "city": "London",
+      "port": 51820,
+      "public_key": "iBJRXLZwXuWWrOZE1ZrAXEKMgV/z0WjG0Tks5rnWLBI="
+    },
+    {
+      "hostname": "uk-man.prod.surfshark.com",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "city": "Manchester",
+      "port": 51820,
+      "public_key": "9R8He1cP8Laf5MT58FcaEYtPW/qnN3M9MQThIXOIvHs="
+    },
+    {
+      "hostname": "fr-par.prod.surfshark.com",
+      "country": "France",
+      "country_code": "FR",
+      "city": "Paris",
+      "port": 51820,
+      "public_key": "AsvLuvKKADdc67aA/vHA3vb61S6YnGGx2Pd4aP4wal8="
+    },
+    {
+      "hostname": "fr-mrs.prod.surfshark.com",
+      "country": "France",
+      "country_code": "FR",
+      "city": "Marseille",
+      "port": 51820,
+      "public_key": "QYa3ZFLwWAHKiJzOcbM73K7KBE0tdJYuirbGb+uH0H0="
+    },
+    {
+      "hostname": "ch-zur.prod.surfshark.com",
+      "country": "Switzerland",
+      "country_code": "CH",
+      "city": "Zurich",
+      "port": 51820,
+      "public_key": "qFuwaE8IyDbNBTNar3xAXRGaBdkTtmLh1uIGMJxTxUs="
+    },
+    {
+      "hostname": "se-sto.prod.surfshark.com",
+      "country": "Sweden",
+      "country_code": "SE",
+      "city": "Stockholm",
+      "port": 51820,
+      "public_key": "oUFRc+2emXgogDVWnJF4RAzr72PyafCzMVeQOgG92lY="
+    },
+    {
+      "hostname": "no-osl.prod.surfshark.com",
+      "country": "Norway",
+      "country_code": "NO",
+      "city": "Oslo",
+      "port": 51820,
+      "public_key": "pXfZi2vsdd88qrnqh+bwqHG4IYD42pj3T1wCm3PIGmw="
+    },
+    {
+      "hostname": "fi-hel.prod.surfshark.com",
+      "country": "Finland",
+      "country_code": "FI",
+      "city": "Helsinki",
+      "port": 51820,
+      "public_key": "+nv/Z8I2VS0eRdZwkpQW3U9RmsboTz2MUF94jVg5w10="
+    },
+    {
+      "hostname": "dk-cph.prod.surfshark.com",
+      "country": "Denmark",
+      "country_code": "DK",
+      "city": "Copenhagen",
+      "port": 51820,
+      "public_key": "peDjRPEdHHmo0hGootZ9f+MQCEXmziFkLhMTl2PeXRM="
+    },
+    {
+      "hostname": "be-bru.prod.surfshark.com",
+      "country": "Belgium",
+      "country_code": "BE",
+      "city": "Brussels",
+      "port": 51820,
+      "public_key": "9wZOjtwuKEc0GBcvc3xJQ4Kjo8G3EMXu6zJRzbanOjc="
+    },
+    {
+      "hostname": "ie-dub.prod.surfshark.com",
+      "country": "Ireland",
+      "country_code": "IE",
+      "city": "Dublin",
+      "port": 51820,
+      "public_key": "TjYxodFNdGlefxnWqe9vWWJHnz3meYWWhiIJyU8rgg8="
+    },
+    {
+      "hostname": "it-rom.prod.surfshark.com",
+      "country": "Italy",
+      "country_code": "IT",
+      "city": "Rome",
+      "port": 51820,
+      "public_key": "fqxSeDr7n249iywruwLMwkV3r36svPT1tLf9TJOTFAw="
+    },
+    {
+      "hostname": "it-mil.prod.surfshark.com",
+      "country": "Italy",
+      "country_code": "IT",
+      "city": "Milan",
+      "port": 51820,
+      "public_key": "vIMHzH5FHdVkrhOOc0u/FySVhumaLC3XUk39Wk34LnE="
+    },
+    {
+      "hostname": "es-mad.prod.surfshark.com",
+      "country": "Spain",
+      "country_code": "ES",
+      "city": "Madrid",
+      "port": 51820,
+      "public_key": "a30vOQfjwPzjRxGNi2dvSAMdaPHEYatR84cUjXKOwls="
+    },
+    {
+      "hostname": "pt-lis.prod.surfshark.com",
+      "country": "Portugal",
+      "country_code": "PT",
+      "city": "Lisbon",
+      "port": 51820,
+      "public_key": "JgYlpt7jFh0FV2QO0QQ3yFfsnqikUq977V3cObFGTQ4="
+    },
+    {
+      "hostname": "at-vie.prod.surfshark.com",
+      "country": "Austria",
+      "country_code": "AT",
+      "city": "Vienna",
+      "port": 51820,
+      "public_key": "dPZe8Jq3Hu0k07MDk+Y4+AS2XHSLYalyg91TSFXRYEA="
+    },
+    {
+      "hostname": "pl-waw.prod.surfshark.com",
+      "country": "Poland",
+      "country_code": "PL",
+      "city": "Warsaw",
+      "port": 51820,
+      "public_key": "vBa3HK7QXietG64rHRLm085VMS2cAX2paeAaphB/SEU="
+    },
+    {
+      "hostname": "cz-prg.prod.surfshark.com",
+      "country": "Czech Republic",
+      "country_code": "CZ",
+      "city": "Prague",
+      "port": 51820,
+      "public_key": "c1bfP+OBTj6WUe8NDH8d6nDTwpQicopfdkHFx3BIaSk="
+    },
+    {
+      "hostname": "sk-bts.prod.surfshark.com",
+      "country": "Slovakia",
+      "country_code": "SK",
+      "city": "Bratislava",
+      "port": 51820,
+      "public_key": "T5b7+uwUFqN5r1WsfBXURpSnYCYRLFAVreKkIQHGOlw="
+    },
+    {
+      "hostname": "hu-bud.prod.surfshark.com",
+      "country": "Hungary",
+      "country_code": "HU",
+      "city": "Budapest",
+      "port": 51820,
+      "public_key": "Pk3+iZNP0uWkDTSmEHlUeSA3WyiFXLXgYgAQ5wNyIBk="
+    },
+    {
+      "hostname": "ro-buc.prod.surfshark.com",
+      "country": "Romania",
+      "country_code": "RO",
+      "city": "Bucharest",
+      "port": 51820,
+      "public_key": "uRT3uSAUwvm7Rp+s3n5V9JibsKHKAZ/8+SU3psG8QxI="
+    },
+    {
+      "hostname": "bg-sof.prod.surfshark.com",
+      "country": "Bulgaria",
+      "country_code": "BG",
+      "city": "Sofia",
+      "port": 51820,
+      "public_key": "LQFiCiZcPEoYasKRLbCfXp2fYYsj8wiMr/L9u6hYqSo="
+    },
+    {
+      "hostname": "gr-ath.prod.surfshark.com",
+      "country": "Greece",
+      "country_code": "GR",
+      "city": "Athens",
+      "port": 51820,
+      "public_key": "bXnjQGLhuauvBMg51YIAhwX40YqNL2ImyEub5DpHaBk="
+    },
+    {
+      "hostname": "cy-nic.prod.surfshark.com",
+      "country": "Cyprus",
+      "country_code": "CY",
+      "city": "Nicosia",
+      "port": 51820,
+      "public_key": "kEAQgNChxGgrzoKPpCPFJKh0L1/5rXIq08KSY4g26zY="
+    },
+    {
+      "hostname": "hr-zag.prod.surfshark.com",
+      "country": "Croatia",
+      "country_code": "HR",
+      "city": "Zagreb",
+      "port": 51820,
+      "public_key": "nIQmC5T4H0HX4yA2u/Z5rrbLQDAOLA+kFCdt8S94xXg="
+    },
+    {
+      "hostname": "si-lju.prod.surfshark.com",
+      "country": "Slovenia",
+      "country_code": "SI",
+      "city": "Ljubljana",
+      "port": 51820,
+      "public_key": "yPdmxOfzm06fotkt/dlaAiyxWPaWfCuDPaUljNx+c38="
+    },
+    {
+      "hostname": "rs-beg.prod.surfshark.com",
+      "country": "Serbia",
+      "country_code": "RS",
+      "city": "Belgrade",
+      "port": 51820,
+      "public_key": "A3vmr6/umw5sP8anxNyipgi5oEnOnZdqB1K/cbQpMiI="
+    },
+    {
+      "hostname": "ba-sjj.prod.surfshark.com",
+      "country": "Bosnia and Herzegovina",
+      "country_code": "BA",
+      "city": "Sarajevo",
+      "port": 51820,
+      "public_key": "hsm/ps/uxcsVNzT3OmV/l7ZWv+TRIS+IM+N6/nTymkw="
+    },
+    {
+      "hostname": "mk-skp.prod.surfshark.com",
+      "country": "North Macedonia",
+      "country_code": "MK",
+      "city": "Skopje",
+      "port": 51820,
+      "public_key": "dZNq48noPkey9rwSbAU+masbafpDSaAmtAMaP+gzLxA="
+    },
+    {
+      "hostname": "ee-tll.prod.surfshark.com",
+      "country": "Estonia",
+      "country_code": "EE",
+      "city": "Tallinn",
+      "port": 51820,
+      "public_key": "CsdrT+WfcMRPhrOWgZeHj9DQiQtJfYFci94K5ztjr2E="
+    },
+    {
+      "hostname": "lv-rig.prod.surfshark.com",
+      "country": "Latvia",
+      "country_code": "LV",
+      "city": "Riga",
+      "port": 51820,
+      "public_key": "EmghYf9rIpwOQ0uIjIxgCXs/WwHJthNvPIv5iKseE3A="
+    },
+    {
+      "hostname": "lt-vno.prod.surfshark.com",
+      "country": "Lithuania",
+      "country_code": "LT",
+      "city": "Vilnius",
+      "port": 51820,
+      "public_key": "pC7xJD56uFFJ7qHpe3XvXXhjwZcoMco09ySHOg4h+iA="
+    },
+    {
+      "hostname": "md-chi.prod.surfshark.com",
+      "country": "Moldova",
+      "country_code": "MD",
+      "city": "Chisinau",
+      "port": 51820,
+      "public_key": "4Exn42t337sxoBzYHxgmDBNq+AhTYz6nvEj98TWY50Y="
+    },
+    {
+      "hostname": "ua-iev.prod.surfshark.com",
+      "country": "Ukraine",
+      "country_code": "UA",
+      "city": "Kyiv",
+      "port": 51820,
+      "public_key": "wy+PhWBP715KfBrsQR4P3JUalYc9a77FmZWQinwYLmo="
+    },
+    {
+      "hostname": "is-rkv.prod.surfshark.com",
+      "country": "Iceland",
+      "country_code": "IS",
+      "city": "Reykjavik",
+      "port": 51820,
+      "public_key": "d0m2sIa0JGcxCBvoWDU77SjmPoiWI/oKoX1TL2f2fTA="
+    },
+    {
+      "hostname": "lu-ste.prod.surfshark.com",
+      "country": "Luxembourg",
+      "country_code": "LU",
+      "city": "Steinsel",
+      "port": 51820,
+      "public_key": "68JVBL/M2AYQ9gYHtcpmZ6Pl+ayhJjTL2sr6Ej1VEFg="
+    },
+    {
+      "hostname": "tr-ist.prod.surfshark.com",
+      "country": "Turkey",
+      "country_code": "TR",
+      "city": "Istanbul",
+      "port": 51820,
+      "public_key": "sF/TlxU9XaDN3QQBT/lu2Pw9qpD3XpDqLBfInBtff2A="
+    },
+    {
+      "hostname": "am-evn.prod.surfshark.com",
+      "country": "Armenia",
+      "country_code": "AM",
+      "city": "Yerevan",
+      "port": 51820,
+      "public_key": "B+aSYrw7JSq7b60uK0nrMQGCiJ48QwiUp/aoRpYX2lU="
+    },
+    {
+      "hostname": "az-bak.prod.surfshark.com",
+      "country": "Azerbaijan",
+      "country_code": "AZ",
+      "city": "Baku",
+      "port": 51820,
+      "public_key": "pvWYTFxIpqo25NGTertIIWnccS/sUQ6fIkqd8XJYzEI="
+    },
+    {
+      "hostname": "ge-tbs.prod.surfshark.com",
+      "country": "Georgia",
+      "country_code": "GE",
+      "city": "Tbilisi",
+      "port": 51820,
+      "public_key": "L79E4IoaVZBXOyoMM82TvUIbiKlloRbUnT8R2Cl3PVM="
+    },
+    {
+      "hostname": "kz-ura.prod.surfshark.com",
+      "country": "Kazakhstan",
+      "country_code": "KZ",
+      "city": "Oral",
+      "port": 51820,
+      "public_key": "c8SPrUWVMjSm3xdZRF4eg57sdEo2TFmBDVKP+A+quHM="
+    },
+    {
+      "hostname": "ae-dub.prod.surfshark.com",
+      "country": "United Arab Emirates",
+      "country_code": "AE",
+      "city": "Dubai",
+      "port": 51820,
+      "public_key": "6dZGkg0iAMgQuOCGknAgBAqDEeJeBQ4Of5eblO4aNC8="
+    },
+    {
+      "hostname": "il-tlv.prod.surfshark.com",
+      "country": "Israel",
+      "country_code": "IL",
+      "city": "Tel Aviv",
+      "port": 51820,
+      "public_key": "ZEG2fUrtohnVePblUlDM6wyyeTobzsABnMjTTFmqNUE="
+    },
+    {
+      "hostname": "sg-sng.prod.surfshark.com",
+      "country": "Singapore",
+      "country_code": "SG",
+      "city": "Singapore",
+      "port": 51820,
+      "public_key": "MGfgkhJsMVMTO33h1wr76+z6gQr/93VcGdClfbaPsnU="
+    },
+    {
+      "hostname": "jp-tok.prod.surfshark.com",
+      "country": "Japan",
+      "country_code": "JP",
+      "city": "Tokyo",
+      "port": 51820,
+      "public_key": "YJSjrc/WWOjQUyUi4iYcHb7LsWWoCY+2fK8/8VtC/BY="
+    },
+    {
+      "hostname": "kr-seo.prod.surfshark.com",
+      "country": "South Korea",
+      "country_code": "KR",
+      "city": "Seoul",
+      "port": 51820,
+      "public_key": "bD/m2mdKxJXG2wTkLsmWpiW8xZwkDdrrrwC44auOhQg="
+    },
+    {
+      "hostname": "hk-hkg.prod.surfshark.com",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "city": "Hong Kong",
+      "port": 51820,
+      "public_key": "JYHdktdtuM7inbtsxRKSDpnBVTWQ5+QLZ/cWWmf4VRg="
+    },
+    {
+      "hostname": "tw-tai.prod.surfshark.com",
+      "country": "Taiwan",
+      "country_code": "TW",
+      "city": "Taipei",
+      "port": 51820,
+      "public_key": "P0vaGUOUE7V5bbGOYY2WgQeZnTZEHvIr+dfebU7W4Ao="
+    },
+    {
+      "hostname": "my-kul.prod.surfshark.com",
+      "country": "Malaysia",
+      "country_code": "MY",
+      "city": "Kuala Lumpur",
+      "port": 51820,
+      "public_key": "AS84LXlJfgBwGHc70MvtGRxsMqNNucZ2pNOBayJUm04="
+    },
+    {
+      "hostname": "th-bkk.prod.surfshark.com",
+      "country": "Thailand",
+      "country_code": "TH",
+      "city": "Bangkok",
+      "port": 51820,
+      "public_key": "OoFY46j/w4uQFyFu/OQ/h3x+ymJ1DJ4UR1fwGNxOxk0="
+    },
+    {
+      "hostname": "au-syd.prod.surfshark.com",
+      "country": "Australia",
+      "country_code": "AU",
+      "city": "Sydney",
+      "port": 51820,
+      "public_key": "Y5KM9kHdM0upMsIJWUQquOY1RgkWX69AHw/Dl5KyIk4="
+    },
+    {
+      "hostname": "au-mel.prod.surfshark.com",
+      "country": "Australia",
+      "country_code": "AU",
+      "city": "Melbourne",
+      "port": 51820,
+      "public_key": "yYX9yLjHOSWVAsaujcIVWAxF9wYMmHupG1RtJk+u21o="
+    },
+    {
+      "hostname": "nz-akl.prod.surfshark.com",
+      "country": "New Zealand",
+      "country_code": "NZ",
+      "city": "Auckland",
+      "port": 51820,
+      "public_key": "xv8P19y0m9ojrLelCaPzGtaVv7tlPzLgZxvAD7lpYDg="
+    },
+    {
+      "hostname": "us-nyc.prod.surfshark.com",
+      "country": "United States",
+      "country_code": "US",
+      "city": "New York",
+      "port": 51820,
+      "public_key": "rhuoCmHdyYrh0zW3J0YXZK4aN3It7DD26TXlACuWnwU="
+    },
+    {
+      "hostname": "us-lax.prod.surfshark.com",
+      "country": "United States",
+      "country_code": "US",
+      "city": "Los Angeles",
+      "port": 51820,
+      "public_key": "m+L7BVQWDwU2TxjfspMRLkRctvmo7fOkd+eVk6KC5lM="
+    },
+    {
+      "hostname": "us-chi.prod.surfshark.com",
+      "country": "United States",
+      "country_code": "US",
+      "city": "Chicago",
+      "port": 51820,
+      "public_key": "DpMfulanF/MVHmt3AX4dqLqcyE0dpPqYBjDlWMaUI00="
+    },
+    {
+      "hostname": "us-mia.prod.surfshark.com",
+      "country": "United States",
+      "country_code": "US",
+      "city": "Miami",
+      "port": 51820,
+      "public_key": "KvJ/jtWb8BsBI85OcZnOIJu9kfh12mCMR4cejWFpDCc="
+    },
+    {
+      "hostname": "us-sea.prod.surfshark.com",
+      "country": "United States",
+      "country_code": "US",
+      "city": "Seattle",
+      "port": 51820,
+      "public_key": "SpMH/p90bg9ZAG6V2DWJQ9csWPVnKcDVppIp9Xul5G8="
+    },
+    {
+      "hostname": "ca-tor.prod.surfshark.com",
+      "country": "Canada",
+      "country_code": "CA",
+      "city": "Toronto",
+      "port": 51820,
+      "public_key": "W9bzkcL3fiV64vDpB4pbrz8QafNn3y5P9Yc/kQvy4TA="
+    },
+    {
+      "hostname": "ca-van.prod.surfshark.com",
+      "country": "Canada",
+      "country_code": "CA",
+      "city": "Vancouver",
+      "port": 51820,
+      "public_key": "o4HezxSsbNqJFJZj+VBw/QXFLpfNo7PZu8xe7H2hTw0="
+    },
+    {
+      "hostname": "br-sao.prod.surfshark.com",
+      "country": "Brazil",
+      "country_code": "BR",
+      "city": "Sao Paulo",
+      "port": 51820,
+      "public_key": "IFTVXxhLEqVgZI/JGOPRtmrNUQW1DNljeBe8Ys7v90A="
+    },
+    {
+      "hostname": "cl-san.prod.surfshark.com",
+      "country": "Chile",
+      "country_code": "CL",
+      "city": "Santiago",
+      "port": 51820,
+      "public_key": "FdTRnh0g+FYFPj5UURQIcDbygd+2gMRrslErfmZxdDo="
+    },
+    {
+      "hostname": "mx-qro.prod.surfshark.com",
+      "country": "Mexico",
+      "country_code": "MX",
+      "city": "Queretaro",
+      "port": 51820,
+      "public_key": "6C8O3L/Li0JOO5aWvL6PrciiZOOaRBtWmempOUENLQs="
+    },
+    {
+      "hostname": "za-jnb.prod.surfshark.com",
+      "country": "South Africa",
+      "country_code": "ZA",
+      "city": "Johannesburg",
+      "port": 51820,
+      "public_key": "Wj/fSWxNLs1igL1uTRp4zLFNohe4S1wqNTYRHevthUA="
+    },
+    {
+      "hostname": "eg-cai.prod.surfshark.com",
+      "country": "Egypt",
+      "country_code": "EG",
+      "city": "Cairo",
+      "port": 51820,
+      "public_key": "EKaIyCUV8aqCtRkV6jfkU1IicE5ZaU2RC4VKAdgjOyA="
+    },
+    {
+      "hostname": "ng-lag.prod.surfshark.com",
+      "country": "Nigeria",
+      "country_code": "NG",
+      "city": "Lagos",
+      "port": 51820,
+      "public_key": "mMmsmMyqtASb4V42H5nxyD8BgauWrNhCCZdBHCsbC00="
+    },
+    {
+      "hostname": "ma-rab.prod.surfshark.com",
+      "country": "Morocco",
+      "country_code": "MA",
+      "city": "Rabat",
+      "port": 51820,
+      "public_key": "Tl7KINtNnar9fVQD8LG2dswOEqSKmUP9ioimCjo6jHc="
+    },
+    {
+      "hostname": "ad-leu.prod.surfshark.com",
+      "country": "Andorra",
+      "country_code": "AD",
+      "city": "Andorra la Vella",
+      "port": 51820,
+      "public_key": "alv2SqjLM8Aw5yz/7pGZydfALPfYzgwDquAe5dWX12s="
+    },
+    {
+      "hostname": "bs-nas.prod.surfshark.com",
+      "country": "Bahamas",
+      "country_code": "BS",
+      "city": "Nassau",
+      "port": 51820,
+      "public_key": "uM3cUZiQ46nRLALqOQfBz2cqg+RyR/OIHH0Xvwf9wHY="
+    },
+    {
+      "hostname": "kh-pnh.prod.surfshark.com",
+      "country": "Cambodia",
+      "country_code": "KH",
+      "city": "Phnom Penh",
+      "port": 51820,
+      "public_key": "z2Ik8BG6XgosyYE/O4Vz4kiPTZyoWSlJvZtFeFlNclI="
+    },
+    {
+      "hostname": "mn-uln.prod.surfshark.com",
+      "country": "Mongolia",
+      "country_code": "MN",
+      "city": "Ulaanbaatar",
+      "port": 51820,
+      "public_key": "3nLHy4uBd2nBUDuAuR6AM58yHLiX2CAXg8kdgEr6tV4="
+    },
+    {
+      "hostname": "mm-nyt.prod.surfshark.com",
+      "country": "Myanmar",
+      "country_code": "MM",
+      "city": "Naypyidaw",
+      "port": 51820,
+      "public_key": "tehGZzcmdK59x99I9dbfuWOHSxBdPsz5lB+uAoT75kE="
+    }
+  ]
+}

@@ -29,10 +29,20 @@ CONFIG_ERROR_KEYS = {
     'bad_ip': 'err_bad_ip',
     'bad_private_key': 'err_key_invalid',
     'key_file_exists': 'err_key_file_exists',
+    'bad_address': 'err_bad_address',
 }
 QR_HINT_KEYS = {'config': 'qr_hint_config', 'link': 'qr_hint_link'}
 AWG_ERROR_KEYS = {'number': 'err_awg_number', 'range': 'err_awg_range', 'order': 'err_awg_order'}
 TAB_SCAN, TAB_SERVERS, TAB_SETTINGS, TAB_GUIDE = range(4)
+PROVIDER_ALL = 'all'
+
+
+def load_surfshark_catalog():
+    """فهرست سرورهای Surfshark همراه برنامه. اگر فایل نباشد، برنامه بدون Surfshark ادامه می‌دهد."""
+    try:
+        return core.load_surfshark_catalog(core.SURFSHARK_CATALOG_FILE)
+    except (OSError, ValueError):
+        return []
 
 
 class UserError(Exception):
@@ -52,6 +62,10 @@ class ScannerApp:
         self.tab = TAB_SCAN
         self.private_key = ''
         self.mode = 'free'
+        self.provider = core.PROVIDER_PROTON
+        self.surfshark_servers = load_surfshark_catalog()
+        self.surfshark_identity = None  # فقط در حافظه؛ هرگز ذخیره نمی‌شود
+        self.surfshark_text = ''
         self.raw_data = None
         self.loaded_once = False
         self.index = None
@@ -210,6 +224,15 @@ class ScannerApp:
             selected=[self.mode],
             on_change=self.on_mode,
         )
+        self.provider_seg = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=core.PROVIDER_PROTON, label=ft.Text(t('provider_proton'))),
+                ft.Segment(value=core.PROVIDER_SURFSHARK, label=ft.Text(t('provider_surfshark'))),
+                ft.Segment(value=PROVIDER_ALL, label=ft.Text(t('provider_all'))),
+            ],
+            selected=[self.provider],
+            on_change=self.on_provider,
+        )
         self.continent_dd = ft.Dropdown(
             value=self.continent, options=self.continent_options(), on_select=self.on_continent,
             expand=True, border_color=ui.BORDER, focused_border_color=ui.PRIMARY, bgcolor=ui.SURFACE,
@@ -245,6 +268,7 @@ class ScannerApp:
                         ft.Row([self.btn_load], spacing=8),
                         self.db_text),
                 ui.card(ui.heading(t('filter_title')),
+                        self.provider_seg,
                         self.mode_seg,
                         ft.Row([self.continent_dd, self.country_dd], spacing=8)),
                 ui.card(ui.heading(t('step_scan')),
@@ -272,6 +296,12 @@ class ScannerApp:
         self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
         self.results_header = ft.Text('', size=13, weight=ft.FontWeight.BOLD, color=ui.TEXT_MUTED)
         self.results_list = ft.Column(spacing=10)
+        self.surfshark_field = ft.TextField(
+            label=t('surfshark_label'), value=self.surfshark_text, multiline=True, min_lines=3, max_lines=6,
+            on_change=self.on_surfshark_change, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
+            bgcolor=ui.SURFACE, color=ui.TEXT, text_size=12,
+        )
+        self.surfshark_status = ui.body_text('', color=ui.TEXT_MUTED, size=12)
         return ft.Column(
             [
                 ui.card(
@@ -279,6 +309,12 @@ class ScannerApp:
                     ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
                     ft.Row([self.btn_export], spacing=8),
                     ft.Row([self.btn_links], spacing=8),
+                ),
+                ui.card(
+                    ui.heading(t('surfshark_title')),
+                    self.surfshark_field,
+                    ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
+                    self.surfshark_status,
                 ),
                 self.results_header,
                 self.results_list,
@@ -358,6 +394,7 @@ class ScannerApp:
         self.btn_load.content = self.t('btn_reload' if self.loaded_once else 'btn_load')
         self.btn_load.disabled = busy
         self.db_text.value = self.db_summary()
+        self.provider_seg.disabled = busy
         self.mode_seg.disabled = busy or not loaded
         self.continent_dd.disabled = busy or not loaded
         self.country_dd.disabled = busy or not loaded
@@ -379,6 +416,7 @@ class ScannerApp:
         self.status_text.color = ui.level_color(level)
 
         self.key_field.disabled = busy
+        self.surfshark_field.disabled = busy
         self.btn_export.disabled = busy or not has_results
         self.btn_links.disabled = busy or not has_results
         self.results_list.controls = self.result_controls()
@@ -421,17 +459,34 @@ class ScannerApp:
         if self.index is None:
             return [ft.DropdownOption(key=core.ALL_COUNTRIES, text=self.t('country_all'))]
         labels = core.country_choices(self.index, self.continent)
-        return [ft.DropdownOption(key=label, text=self.t('country_all') if label == core.ALL_COUNTRIES else label)
-                for label in labels]
+        options = []
+        for label in labels:
+            if label == core.ALL_COUNTRIES:
+                options.append(ft.DropdownOption(key=label, text=self.t('country_all')))
+                continue
+            options.append(ft.DropdownOption(
+                key=label, text=label,
+                content=ft.Row([ui.flag(core.cc_from_label(label), 18), ft.Text(label, color=ui.TEXT)],
+                               spacing=8)))
+        return options
 
     def refresh_region_options(self):
         self.continent_dd.options = self.continent_options()
         self.country_dd.options = self.country_options()
 
+    def provider_servers(self):
+        """سرورهای سرویس یا سرویس‌های انتخاب‌شده. فهرست Proton فقط بعد از بارگذاری دیتابیس در دسترس است."""
+        servers = []
+        if self.provider in (core.PROVIDER_PROTON, PROVIDER_ALL) and self.raw_data is not None:
+            servers += core.extract_servers(self.raw_data)
+        if self.provider in (core.PROVIDER_SURFSHARK, PROVIDER_ALL):
+            servers += self.surfshark_servers
+        return servers
+
     def update_menus(self):
-        servers = core.extract_servers(self.raw_data)
-        self.all_filtered = core.dedupe_endpoints(core.filter_by_tier(servers, self.mode))
-        self.index = core.build_region_index(self.all_filtered)
+        self.all_filtered = core.dedupe_endpoints(core.filter_by_tier(self.provider_servers(), self.mode))
+        loaded = self.raw_data is not None or self.provider != core.PROVIDER_PROTON
+        self.index = core.build_region_index(self.all_filtered) if loaded else None
         self.continent = core.ALL_CONTINENTS
         self.country = core.ALL_COUNTRIES
         self.continent_dd.value = self.continent
@@ -469,6 +524,15 @@ class ScannerApp:
             self.update_menus()
         self.sync()
 
+    async def on_provider(self, e):
+        self.provider = self.selected_value(e.control)
+        # سرورهای Surfshark پولی‌اند؛ با فیلتر «رایگان» فهرست خالی می‌ماند، پس فیلتر را به «همه» می‌بریم
+        if self.provider == core.PROVIDER_SURFSHARK and self.mode == 'free':
+            self.mode = 'all'
+            self.mode_seg.selected = [self.mode]
+        self.update_menus()
+        self.sync()
+
     async def on_continent(self, e):
         self.continent = e.control.value
         self.country = core.ALL_COUNTRIES
@@ -484,6 +548,25 @@ class ScannerApp:
 
     async def on_key_change(self, e):
         self.private_key = e.control.value or ''
+
+    async def on_surfshark_change(self, e):
+        text = e.control.value or ''
+        self.surfshark_text = text
+        self.surfshark_identity = None
+        if not text.strip():
+            self.surfshark_status.value = ''
+        else:
+            try:
+                self.surfshark_identity = core.parse_surfshark_conf(text)
+                # متن فایل پس از خواندن پاک می‌شود تا کلید روی صفحه نماند؛ کلید فقط در حافظه می‌ماند
+                self.surfshark_text = ''
+                e.control.value = ''
+                self.surfshark_status.value = self.t('surfshark_ready')
+                self.surfshark_status.color = ui.SUCCESS
+            except core.ConfigError as exc:
+                self.surfshark_status.value = self.t(CONFIG_ERROR_KEYS.get(exc.code, 'err_generic'))
+                self.surfshark_status.color = ui.DANGER
+        self.page.update()
 
     async def on_language(self, e):
         self.lang = self.selected_value(e.control)
@@ -541,6 +624,9 @@ class ScannerApp:
         self.set_status('ok', 'scan_reset_done')
 
     async def run_batch(self):
+        if self.provider == core.PROVIDER_SURFSHARK and self.surfshark_identity is None:
+            self.set_status('warn', 'surfshark_key_needed')
+            return
         continent, cc = self.scan_selection
         active_map = self.index.active_map if self.index else {}
         servers = core.filter_servers(self.all_filtered, continent, cc, active_map)
@@ -561,7 +647,7 @@ class ScannerApp:
         async def check(server):
             nonlocal done
             async with gate:
-                ping, proto = await asyncio.to_thread(core.smart_ping, server['ip'])
+                ping, proto = await asyncio.to_thread(core.probe_server, server, self.probe_key(server))
             done += 1
             if done % 10 == 0 or done == total:
                 self.progress = (done, total)
@@ -617,6 +703,23 @@ class ScannerApp:
             raise UserError('err_key_invalid')
         return key
 
+    def identity_for(self, server, required):
+        """کلید و آدرس حسابی که سرور به آن تعلق دارد: Proton از کادر کلید، Surfshark از متن .conf."""
+        if server.get('provider') == core.PROVIDER_SURFSHARK:
+            if self.surfshark_identity is not None:
+                return self.surfshark_identity
+            if required:
+                raise UserError('surfshark_key_needed')
+            return core.WgIdentity(private_key='')
+        return core.WgIdentity(private_key=self.key_for(required))
+
+    def probe_key(self, server):
+        """کلید لازم برای سنجش یک سرور؛ اگر کلید نباشد رشته‌ی خالی برمی‌گرداند."""
+        try:
+            return self.identity_for(server, required=False).private_key
+        except UserError:
+            return ''
+
     async def guarded(self, action):
         try:
             await action()
@@ -635,30 +738,34 @@ class ScannerApp:
         await self.copy_text(server['ip'], 'copied')
 
     async def copy_link(self, server):
-        key = self.key_for(required=True)
-        link = core.build_wg_link(server, key, obfuscation=self.obfuscation())
+        ident = self.identity_for(server, required=True)
+        link = core.build_wg_link(server, ident.private_key, obfuscation=self.obfuscation(),
+                                  address=ident.address, dns=ident.dns)
         await self.copy_text(link, 'link_copied', name=server['name'])
 
     async def copy_wg(self, server):
-        key = self.key_for(required=False)
-        conf = core.build_wireguard_config(server, key, obfuscation=self.obfuscation())
+        ident = self.identity_for(server, required=False)
+        conf = core.build_wireguard_config(server, ident.private_key, address=ident.address, dns=ident.dns,
+                                           obfuscation=self.obfuscation())
         await self.copy_text(conf, 'config_copied')
 
     async def save_wg(self, server):
-        key = self.key_for(required=False)
-        path = await asyncio.to_thread(core.write_wireguard_config, server, self.export_dir, key,
-                                       self.obfuscation())
+        ident = self.identity_for(server, required=False)
+        path = await asyncio.to_thread(core.write_wireguard_config, server, self.export_dir, ident.private_key,
+                                       self.obfuscation(), ident.address, ident.dns)
         self.toast('ok', 'saved_to', path=path)
 
     async def show_qr(self, server):
-        key = self.key_for(required=True)
+        ident = self.identity_for(server, required=True)
         if not core.qr_available():
             raise UserError('err_qr_package')
         obfuscation = self.obfuscation()
         # هر دو حالت همین‌جا ساخته می‌شوند تا خطای سرور قبل از باز شدن پنجره دیده شود
         payloads = {
-            'config': core.build_wireguard_config(server, key, obfuscation=obfuscation),
-            'link': core.build_wg_link(server, key, obfuscation=obfuscation),
+            'config': core.build_wireguard_config(server, ident.private_key, address=ident.address,
+                                                  dns=ident.dns, obfuscation=obfuscation),
+            'link': core.build_wg_link(server, ident.private_key, obfuscation=obfuscation,
+                                       address=ident.address, dns=ident.dns),
         }
         qr_box = ft.Container(bgcolor=ft.Colors.WHITE, border_radius=8)
         hint = ui.body_text('', color=ui.TEXT_MUTED, size=12)
@@ -701,15 +808,16 @@ class ScannerApp:
         await self.guarded(self.do_copy_links)
 
     async def do_copy_links(self):
-        key = self.key_for(required=True)
         cc = core.cc_from_label(self.country)
         active_map = self.index.active_map if self.index else {}
         servers = core.filter_servers(self.last_valid, self.continent, cc, active_map)
         obfuscation = self.obfuscation()
         links, skipped = [], 0
         for server in servers:
+            ident = self.identity_for(server, required=True)
             try:
-                links.append(core.build_wg_link(server, key, obfuscation=obfuscation))
+                links.append(core.build_wg_link(server, ident.private_key, obfuscation=obfuscation,
+                                                address=ident.address, dns=ident.dns))
             except core.ConfigError:
                 skipped += 1
         if not links:
@@ -730,13 +838,20 @@ class ScannerApp:
         await self.guarded(self.do_export)
 
     async def do_export(self):
-        key = self.key_for(required=False)
         top = core.top_results(self.last_valid, core.TOP_N)
         if not top:
             raise UserError('export_nothing')
         obfuscation = self.obfuscation()
-        written, skipped = await asyncio.to_thread(core.export_wireguard_configs, top, self.export_dir, key,
-                                                   obfuscation)
+        written, skipped = [], []
+        for provider in (core.PROVIDER_PROTON, core.PROVIDER_SURFSHARK):
+            group = [server for server in top if server.get('provider', core.PROVIDER_PROTON) == provider]
+            if not group:
+                continue
+            ident = self.identity_for(group[0], required=False)
+            done, failed = await asyncio.to_thread(core.export_wireguard_configs, group, self.export_dir,
+                                                   ident.private_key, obfuscation, ident.address, ident.dns)
+            written += done
+            skipped += failed
         kind = 'AmneziaWG' if obfuscation else 'WireGuard'
         if skipped:
             self.toast('warn', 'exported_partial', count=len(written), kind=kind, path=self.export_dir,

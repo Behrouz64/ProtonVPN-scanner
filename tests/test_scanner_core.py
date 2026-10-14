@@ -231,7 +231,7 @@ class WireGuardExportTests(unittest.TestCase):
             written, skipped = core.export_wireguard_configs(servers, target, VALID_KEY_2)
 
             self.assertEqual(skipped, ['DE#1'])
-            self.assertEqual([os.path.basename(p) for p in written], ['US_1.conf'])
+            self.assertEqual([os.path.basename(p) for p in written], ['proton_US_1.conf'])
             with open(written[0], encoding='utf-8') as f:
                 content = f.read()
             self.assertIn('Endpoint = 10.0.0.1:51820', content)
@@ -530,8 +530,8 @@ class AmneziaWGConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             awg_path = core.write_wireguard_config(self.server, tmp, VALID_KEY_2, self.params)
             plain_path = core.write_wireguard_config(self.server, tmp, VALID_KEY_2)
-            self.assertEqual(os.path.basename(awg_path), 'US_1_awg.conf')
-            self.assertEqual(os.path.basename(plain_path), 'US_1.conf')
+            self.assertEqual(os.path.basename(awg_path), 'proton_US_1_awg.conf')
+            self.assertEqual(os.path.basename(plain_path), 'proton_US_1.conf')
             with open(awg_path, encoding='utf-8') as f:
                 self.assertIn('Jc = 4', f.read())
 
@@ -612,7 +612,7 @@ class WgLinkTests(unittest.TestCase):
 
     def test_label_has_flag_country_city_and_ip(self):
         info = parse_wg_link(core.build_wg_link(self.server, VALID_KEY))
-        self.assertEqual(info['label'], '\U0001F1E6\U0001F1F1 Albania — Tirana (203.0.113.7)')
+        self.assertEqual(info['label'], '\U0001F7E3 \U0001F1E6\U0001F1F1 Albania — Tirana (203.0.113.7)')
 
     def test_uk_uses_gb_flag(self):
         self.assertEqual(core.country_flag('UK'), '\U0001F1EC\U0001F1E7')
@@ -620,7 +620,11 @@ class WgLinkTests(unittest.TestCase):
 
     def test_label_without_city_uses_country_only(self):
         server = {**self.server, 'city': ''}
-        self.assertEqual(core.server_label(server), '\U0001F1E6\U0001F1F1 Albania (203.0.113.7)')
+        self.assertEqual(core.server_label(server), '\U0001F7E3 \U0001F1E6\U0001F1F1 Albania (203.0.113.7)')
+
+    def test_surfshark_label_uses_shark_marker_only(self):
+        server = {**self.server, 'provider': core.PROVIDER_SURFSHARK, 'city': 'Tirana'}
+        self.assertEqual(core.server_label(server), '\U0001F988 \U0001F1E6\U0001F1F1 Albania — Tirana (203.0.113.7)')
 
     def test_keys_keep_slash_and_encode_plus_and_equals(self):
         key = '+/+/Pvv/vz77/78++/+/Pvv/vz77/78++/+/Pvv/vz4='
