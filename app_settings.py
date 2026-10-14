@@ -1,4 +1,4 @@
-"""تنظیمات برنامه: زبان و پنهان‌سازی AmneziaWG.
+"""تنظیمات برنامه: زبان، پنهان‌سازی AmneziaWG، روش اسکن و آستانه‌ی پاسخ فیک.
 
 فقط منطق خالص است و به رابط گرافیکی وابسته نیست؛ ذخیره‌سازی واقعی در main.py انجام می‌شود.
 کلید خصوصی WireGuard عمداً در تنظیمات نیست و هیچ‌وقت ذخیره نمی‌شود.
@@ -16,6 +16,8 @@ def default_settings():
         'language': i18n.DEFAULT_LANGUAGE,
         'obfuscation_enabled': True,
         'obfuscation': dict(core.DEFAULT_OBFUSCATION),
+        'scan_mode': core.SCAN_WITH_KEY,
+        'fake_threshold_ms': core.MIN_PLAUSIBLE_PING_MS,
     }
 
 
@@ -37,6 +39,11 @@ def load_settings(text):
         params, errors = core.check_obfuscation(raw)
         if not errors:
             settings['obfuscation'] = params
+    if data.get('scan_mode') in core.SCAN_MODES:
+        settings['scan_mode'] = data['scan_mode']
+    threshold = data.get('fake_threshold_ms')
+    if isinstance(threshold, int) and not isinstance(threshold, bool) and threshold in core.FAKE_THRESHOLD_CHOICES:
+        settings['fake_threshold_ms'] = threshold
     return settings
 
 
@@ -46,6 +53,8 @@ def dump_settings(settings):
         'language': i18n.normalize_language(settings['language']),
         'obfuscation_enabled': bool(settings['obfuscation_enabled']),
         'obfuscation': settings['obfuscation'],
+        'scan_mode': settings.get('scan_mode', core.SCAN_WITH_KEY),
+        'fake_threshold_ms': settings.get('fake_threshold_ms', core.MIN_PLAUSIBLE_PING_MS),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

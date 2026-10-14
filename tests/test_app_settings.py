@@ -49,6 +49,33 @@ class DefaultsAndLoadTests(unittest.TestCase):
         self.assertTrue(settings['obfuscation_enabled'])
 
 
+class ScanSettingsTests(unittest.TestCase):
+    def test_defaults_use_key_scan_and_ten_ms_threshold(self):
+        settings = app_settings.default_settings()
+        self.assertEqual(settings['scan_mode'], core.SCAN_WITH_KEY)
+        self.assertEqual(settings['fake_threshold_ms'], core.MIN_PLAUSIBLE_PING_MS)
+
+    def test_valid_values_are_loaded(self):
+        loaded = app_settings.load_settings(
+            json.dumps({'scan_mode': 'keyless', 'fake_threshold_ms': 20}))
+        self.assertEqual(loaded['scan_mode'], 'keyless')
+        self.assertEqual(loaded['fake_threshold_ms'], 20)
+
+    def test_invalid_values_fall_back_to_defaults(self):
+        for payload in ({'scan_mode': 'both'}, {'fake_threshold_ms': 7}, {'fake_threshold_ms': True},
+                        {'fake_threshold_ms': '10'}, {'scan_mode': None}):
+            with self.subTest(payload=payload):
+                loaded = app_settings.load_settings(json.dumps(payload))
+                self.assertEqual(loaded['scan_mode'], core.SCAN_WITH_KEY)
+                self.assertEqual(loaded['fake_threshold_ms'], core.MIN_PLAUSIBLE_PING_MS)
+
+    def test_round_trip_keeps_scan_settings(self):
+        settings = {**app_settings.default_settings(), 'scan_mode': 'keyless', 'fake_threshold_ms': 0}
+        loaded = app_settings.load_settings(app_settings.dump_settings(settings))
+        self.assertEqual(loaded['scan_mode'], 'keyless')
+        self.assertEqual(loaded['fake_threshold_ms'], 0)
+
+
 class RoundTripAndBuildTests(unittest.TestCase):
     def test_dump_then_load_gives_same_settings(self):
         settings = {'language': 'en', 'obfuscation_enabled': False,
@@ -60,7 +87,7 @@ class RoundTripAndBuildTests(unittest.TestCase):
 
     def test_saved_file_never_contains_a_private_key_field(self):
         saved = json.loads(app_settings.dump_settings(app_settings.default_settings()))
-        self.assertEqual(set(saved), {'version', 'language', 'obfuscation_enabled', 'obfuscation'})
+        self.assertEqual(set(saved), {'version', 'language', 'obfuscation_enabled', 'obfuscation', 'scan_mode', 'fake_threshold_ms'})
         self.assertNotIn(VALID_KEY, app_settings.dump_settings(app_settings.default_settings()))
 
     def test_reset_restores_suggested_values_only(self):

@@ -44,6 +44,8 @@ SCAN_WORKERS = 8
 TOP_N = 15
 # پینگ‌های زیر 10 میلی‌ثانیه رد می‌شوند
 MIN_PLAUSIBLE_PING_MS = 10
+# گزینه‌های آستانه‌ی پاسخ فیک در تنظیمات؛ ۰ یعنی هیچ پاسخی حذف نشود
+FAKE_THRESHOLD_CHOICES = (0, 5, 10, 20, 50)
 
 PROTON_UDP_PROBE = b'\x38\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
@@ -60,6 +62,10 @@ PROVIDER_PROTON = 'proton'
 PROVIDER_SURFSHARK = 'surfshark'
 # نشانه‌ی هر سرویس در نام کانفیگ‌ها: فقط ایموجی، بدون نام یا لوگوی برند
 PROVIDER_MARKERS = {PROVIDER_PROTON: '🟣', PROVIDER_SURFSHARK: '🦈'}
+# روش اسکن: با کلید = تست واقعی WireGuard (برای Surfshark نیاز به کلید)، بدون کلید = فقط پینگ
+SCAN_WITH_KEY = 'key'
+SCAN_WITHOUT_KEY = 'keyless'
+SCAN_MODES = (SCAN_WITH_KEY, SCAN_WITHOUT_KEY)
 SURFSHARK_CATALOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'surfshark', 'servers.json')
 # آدرس و DNS پیش‌فرض تونل Surfshark؛ فقط کلید خصوصی از کاربر گرفته می‌شود
 SURFSHARK_ADDRESS = '10.14.0.2/16'
@@ -377,12 +383,27 @@ def smart_ping(ip, timeout=1.5):
     return min(candidates)
 
 
-def probe_server(server, private_key=''):
-    """(ms, برچسب) برای یک سرور. Proton با پینگ TCP/UDP و Surfshark با Handshake واقعی سنجیده می‌شود."""
+def probe_server(server, private_key='', mode=SCAN_WITH_KEY):
+    """(ms, برچسب) برای یک سرور.
+
+    با کلید: Surfshark با Handshake واقعی WireGuard سنجیده می‌شود (نیاز به کلید دارد).
+    بدون کلید: فقط پینگ TCP/UDP، و برای Surfshark روی نشانی IPv4 حل‌شده. Proton همیشه پینگ است.
+    """
     if server.get('provider') == PROVIDER_SURFSHARK:
+        if mode == SCAN_WITHOUT_KEY:
+            try:
+                ip = socket.getaddrinfo(server['ip'], None, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+            except (OSError, IndexError):
+                return None, None
+            return smart_ping(ip)
         return surfshark_core.handshake_rtt(server['ip'], server['wg_key'], private_key,
                                             port=server.get('port', WG_PORT))
     return smart_ping(server['ip'])
+
+
+def is_usable_reply(ping, threshold):
+    """پاسخی معتبر است که وجود داشته باشد و کمتر از آستانه‌ی پاسخ فیک نباشد."""
+    return ping is not None and ping >= threshold
 
 
 # ---------- نتایج ----------

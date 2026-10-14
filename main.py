@@ -292,6 +292,8 @@ class ScannerApp:
             bgcolor=ui.SURFACE, color=ui.TEXT, text_size=13,
         )
         self.btn_export = ui.secondary_button(t('btn_export'), self.on_export, icon=ft.Icons.DOWNLOAD)
+        self.btn_export_untested = ui.secondary_button(t('btn_export_untested'), self.on_export_untested,
+                                                       icon=ft.Icons.DOWNLOAD)
         self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
         self.results_header = ft.Text('', size=13, weight=ft.FontWeight.BOLD, color=ui.TEXT_MUTED)
         self.results_list = ft.Column(spacing=10)
@@ -307,6 +309,8 @@ class ScannerApp:
                     self.key_field,
                     ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
                     ft.Row([self.btn_export], spacing=8),
+                    ft.Row([self.btn_export_untested], spacing=8),
+                    ui.body_text(t('export_untested_hint'), color=ui.TEXT_MUTED, size=12),
                     ft.Row([self.btn_links], spacing=8),
                 ),
                 ui.card(
@@ -336,6 +340,22 @@ class ScannerApp:
             on_change=self.on_obfs_toggle, active_color=ui.PRIMARY,
         )
         self.obfs_hint = ui.body_text(self.obfs_hint_text(), color=ui.TEXT_MUTED, size=12)
+        self.scan_mode_seg = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=core.SCAN_WITH_KEY, label=ft.Text(t('scan_mode_key'))),
+                ft.Segment(value=core.SCAN_WITHOUT_KEY, label=ft.Text(t('scan_mode_keyless'))),
+            ],
+            selected=[self.settings['scan_mode']],
+            on_change=self.on_scan_mode,
+        )
+        self.threshold_dd = ft.Dropdown(
+            value=str(self.settings['fake_threshold_ms']),
+            options=[ft.DropdownOption(key=str(value),
+                                       text=t('threshold_none') if value == 0 else f"{value} ms")
+                     for value in core.FAKE_THRESHOLD_CHOICES],
+            on_select=self.on_threshold, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
+            bgcolor=ui.SURFACE, color=ui.TEXT, width=260,
+        )
         self.awg_fields, self.awg_errors = {}, {}
         field_controls = []
         for key in core.AWG_KEYS:
@@ -355,6 +375,14 @@ class ScannerApp:
         return ft.Column(
             [
                 ui.card(ui.heading(t('settings_language')), self.lang_seg),
+                ui.card(
+                    ui.heading(t('settings_scan')),
+                    self.scan_mode_seg,
+                    ui.body_text(t('settings_scan_hint'), color=ui.TEXT_MUTED, size=12),
+                    ui.heading(t('settings_threshold')),
+                    self.threshold_dd,
+                    ui.body_text(t('settings_threshold_hint'), color=ui.TEXT_MUTED, size=12),
+                ),
                 ui.card(
                     ui.heading(t('settings_obfs')),
                     self.obfs_switch,
@@ -417,6 +445,7 @@ class ScannerApp:
         self.key_field.disabled = busy
         self.surfshark_field.disabled = busy
         self.btn_export.disabled = busy or not has_results
+        self.btn_export_untested.disabled = busy or not self.all_filtered
         self.btn_links.disabled = busy or not has_results
         self.results_list.controls = self.result_controls()
         if has_results:
@@ -619,7 +648,8 @@ class ScannerApp:
         self.set_status('ok', 'scan_reset_done')
 
     async def run_batch(self):
-        if self.provider == core.PROVIDER_SURFSHARK and self.surfshark_identity is None:
+        keyless = self.settings['scan_mode'] == core.SCAN_WITHOUT_KEY
+        if self.provider == core.PROVIDER_SURFSHARK and not keyless and self.surfshark_identity is None:
             self.set_status('warn', 'surfshark_key_needed')
             return
         continent, cc = self.scan_selection
@@ -635,6 +665,7 @@ class ScannerApp:
             return
 
         total = len(batch)
+        threshold = self.settings['fake_threshold_ms']
         done = 0
         alive = []
         gate = asyncio.Semaphore(core.SCAN_WORKERS)
@@ -642,13 +673,18 @@ class ScannerApp:
         async def check(server):
             nonlocal done
             async with gate:
-                ping, proto = await asyncio.to_thread(core.probe_server, server, self.probe_key(server))
+                if keyless:
+                    ping, proto = await asyncio.to_thread(core.probe_server, server, '',
+                                                          core.SCAN_WITHOUT_KEY)
+                else:
+                    ping, proto = await asyncio.to_thread(core.probe_server, server, self.probe_key(server),
+                                                          core.SCAN_WITH_KEY)
             done += 1
             if done % 10 == 0 or done == total:
                 self.progress = (done, total)
                 self.sync()
             # پینگ‌های زیر حد مجاز جواب واقعی نیستند
-            if ping is not None and ping >= core.MIN_PLAUSIBLE_PING_MS:
+            if core.is_usable_reply(ping, threshold):
                 alive.append({**server, 'ping': ping, 'proto': proto})
 
         self.busy = True
@@ -667,7 +703,7 @@ class ScannerApp:
             self.last_valid = core.merge_results(self.last_valid, alive)
             self.set_status('ok', 'scan_found', alive=len(alive), shown=min(len(self.last_valid), core.TOP_N))
         else:
-            self.set_status('error', 'scan_all_dead', total=total, ms=core.MIN_PLAUSIBLE_PING_MS)
+            self.set_status('error', 'scan_all_dead', total=total, ms=threshold)
 
     def result_controls(self):
         if not self.last_valid:
@@ -836,10 +872,25 @@ class ScannerApp:
         top = core.top_results(self.last_valid, core.TOP_N)
         if not top:
             raise UserError('export_nothing')
+        await self.export_servers(top)
+
+    async def on_export_untested(self, e=None):
+        await self.guarded(self.do_export_untested)
+
+    async def do_export_untested(self):
+        """کانفیگ‌های فیلتر فعلی را بدون هیچ تستی خروجی می‌گیرد (همان ترتیب فهرست، حداکثر ۱۵ سرور)."""
+        cc = core.cc_from_label(self.country)
+        active_map = self.index.active_map if self.index else {}
+        servers = core.filter_servers(self.all_filtered, self.continent, cc, active_map)[:core.TOP_N]
+        if not servers:
+            raise UserError('export_nothing')
+        await self.export_servers(servers)
+
+    async def export_servers(self, servers):
         obfuscation = self.obfuscation()
         written, skipped = [], []
         for provider in (core.PROVIDER_PROTON, core.PROVIDER_SURFSHARK):
-            group = [server for server in top if server.get('provider', core.PROVIDER_PROTON) == provider]
+            group = [server for server in servers if server.get('provider', core.PROVIDER_PROTON) == provider]
             if not group:
                 continue
             ident = self.identity_for(group[0], required=False)
@@ -855,6 +906,16 @@ class ScannerApp:
             self.toast('ok', 'exported', count=len(written), kind=kind, path=self.export_dir)
 
     # ---------- تنظیمات AmneziaWG ----------
+    async def on_scan_mode(self, e):
+        self.settings['scan_mode'] = self.selected_value(e.control)
+        await self.save_settings()
+        self.page.update()
+
+    async def on_threshold(self, e):
+        self.settings['fake_threshold_ms'] = int(e.control.value)
+        await self.save_settings()
+        self.page.update()
+
     async def on_obfs_toggle(self, e):
         self.settings['obfuscation_enabled'] = bool(e.control.value)
         self.obfs_hint.value = self.obfs_hint_text()

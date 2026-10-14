@@ -60,10 +60,10 @@ python main.py
 
 1. **دیتابیس**: `بارگذاری دیتابیس` فهرست سرورها را می‌گیرد. دکمه‌ی بارگذاری دوباره، فهرست تازه می‌گیرد.
 2. **فیلتر**: نوع سرور (رایگان، پولی، همه) و در صورت نیاز قاره و کشور.
-3. **اسکن**: VPN را کامل خاموش کنید، سپس `شروع اسکن (۵۰۰)` را بزنید. سرورهایی که پینگشان زیر ۱۰ میلی‌ثانیه است حذف می‌شوند.
-4. **سرورها**: کلید خصوصی WireGuard را وارد کنید. برای هر سرور می‌توانید IP، لینک `wg://`، کانفیگ، کد QR یا فایل `.conf` بگیرید.
-5. **تنظیمات**: زبان، روشن یا خاموش بودن پنهان‌سازی AmneziaWG و بازگردانی مقادیر پیشنهادی.
-6. **Surfshark**: در تب اسکن، سرویس **Surfshark** را انتخاب کنید (در فیلتر، «همه» خودکار انتخاب می‌شود). سپس در تب **سرورها** فقط کلید خصوصی WireGuard خود را از Surfshark وارد کنید؛ مثل Proton. کلید فقط در حافظه‌ی برنامه می‌ماند و ذخیره نمی‌شود. آدرس و DNS تونل از مقادیر پیش‌فرض Surfshark (`10.14.0.2/16`) گرفته می‌شود. فهرست سرورها در `assets/surfshark/servers.json` است و با `tools/build_surfshark_catalog.py` به‌روز می‌شود. برای تست هر سرور، برنامه یک پیام Handshake واقعی WireGuard به پورت UDP 51820 می‌فرستد و فقط سرورهایی که پاسخ بدهند نشان داده می‌شوند.
+3. **اسکن**: VPN را کامل خاموش کنید، سپس `شروع اسکن (۵۰۰)` را بزنید. سرورهایی که پاسخشان زیر «آستانه‌ی پاسخ فیک» باشد حذف می‌شوند. این آستانه در تب **تنظیمات** است؛ پیش‌فرضش ۱۰ میلی‌ثانیه است و می‌توانید آن را خاموش کنید یا ۵، ۲۰ و ۵۰ میلی‌ثانیه بگذارید.
+4. **سرورها**: کلید خصوصی WireGuard را وارد کنید. برای هر سرور می‌توانید IP، لینک `wg://`، کانفیگ، کد QR یا فایل `.conf` بگیرید. دکمه‌ی «خروجی ۱۵ سرور بدون تست» کانفیگ‌های فیلتر فعلی را بدون هیچ تستی و به ترتیب فهرست می‌سازد.
+5. **تنظیمات**: زبان، روشن یا خاموش بودن پنهان‌سازی AmneziaWG، **روش اسکن** (با کلید یا بدون کلید)، **آستانه‌ی پاسخ فیک** و بازگردانی مقادیر پیشنهادی.
+6. **Surfshark**: در تب اسکن، سرویس **Surfshark** را انتخاب کنید (در فیلتر، «همه» خودکار انتخاب می‌شود). سپس در تب **سرورها** فقط کلید خصوصی WireGuard خود را از Surfshark وارد کنید؛ مثل Proton. کلید فقط در حافظه‌ی برنامه می‌ماند و ذخیره نمی‌شود. آدرس و DNS تونل از مقادیر پیش‌فرض Surfshark (`10.14.0.2/16`) گرفته می‌شود. فهرست سرورها در `assets/surfshark/servers.json` است و با `tools/build_surfshark_catalog.py` به‌روز می‌شود. در روش **با کلید** (پیش‌فرض)، برنامه برای هر سرور یک پیام Handshake واقعی WireGuard به پورت UDP 51820 می‌فرستد و فقط سرورهایی که پاسخ بدهند نشان داده می‌شوند. در روش **بدون کلید** کلید لازم نیست و فقط پینگ TCP 443 و UDP 80 فرستاده می‌شود؛ این نتیجه تأیید WireGuard نیست و برای ساخت کانفیگ همچنان کلید لازم است.
 
 در نام کانفیگ‌ها و لینک‌های `wg://` نشانه‌ی سرویس می‌آید: 🟣 یعنی Proton و 🦈 یعنی Surfshark. پرچم هر کشور هم کنار سرور نمایش داده می‌شود.
 
@@ -133,6 +133,6 @@ A server shown as alive has only passed the first ping screen. Test the configs 
 
 32-bit (armeabi-v7a) is not supported.
 
-**Surfshark:** choose Surfshark in the scan tab, then enter only your Surfshark WireGuard private key in the Servers tab, the same way as Proton. The key stays in memory and is not saved. The tunnel address and DNS use Surfshark's default values (`10.14.0.2/16`). Proton entries are marked 🟣 and Surfshark entries 🦈 in config names and `wg://` links; country flags are shown next to each server.
+**Surfshark:** choose Surfshark in the scan tab, then enter only your Surfshark WireGuard private key in the Servers tab, the same way as Proton. The key stays in memory and is not saved. The tunnel address and DNS use Surfshark's default values (`10.14.0.2/16`). Proton entries are marked 🟣 and Surfshark entries 🦈 in config names and `wg://` links; country flags are shown next to each server. **Scan method (Settings tab):** *with key* (default) sends a real WireGuard handshake to each Surfshark server on UDP 51820; *no key* needs no key and only pings TCP 443 and UDP 80, which is not a WireGuard check, and configs still need the key. **Fake-reply threshold (Settings tab, default 10 ms):** replies faster than the chosen value are dropped; it can also be turned off. **Export 15 without test** writes configs for the current filter without any check.
 
 Turn the VPN off before scanning. Never share your private key; exported `.conf` files contain it. The app has no telemetry. See [docs/PRIVACY.md](docs/PRIVACY.md) and [.github/SECURITY.md](.github/SECURITY.md). This is an unofficial tool and is not affiliated with Proton AG.

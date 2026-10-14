@@ -131,6 +131,35 @@ class ProbeDispatchTests(unittest.TestCase):
         ping.assert_called_once_with('203.0.113.7')
 
 
+class ScanModeTests(unittest.TestCase):
+    def test_keyless_surfshark_resolves_and_pings_without_a_key(self):
+        server = core.load_surfshark_catalog(CATALOG)[0]
+        with mock.patch.object(core.socket, 'getaddrinfo',
+                               return_value=[(None, None, None, None, ('203.0.113.9', 0))]), \
+                mock.patch.object(core, 'smart_ping', return_value=(77, 'TCP:443')) as ping, \
+                mock.patch.object(surfshark_core, 'handshake_rtt') as handshake:
+            result = core.probe_server(server, '', core.SCAN_WITHOUT_KEY)
+        self.assertEqual(result, (77, 'TCP:443'))
+        ping.assert_called_once_with('203.0.113.9')
+        handshake.assert_not_called()
+
+    def test_keyless_surfshark_unresolved_host_gives_no_reply(self):
+        server = {**core.load_surfshark_catalog(CATALOG)[0], 'ip': 'nowhere.invalid.example'}
+        with mock.patch.object(core.socket, 'getaddrinfo', side_effect=OSError('no dns')):
+            self.assertEqual(core.probe_server(server, '', core.SCAN_WITHOUT_KEY), (None, None))
+
+    def test_reply_threshold_rule(self):
+        self.assertFalse(core.is_usable_reply(None, 0))
+        self.assertTrue(core.is_usable_reply(0, 0))
+        self.assertFalse(core.is_usable_reply(9, 10))
+        self.assertTrue(core.is_usable_reply(10, 10))
+        self.assertTrue(core.is_usable_reply(3, 0))
+
+    def test_threshold_choices_include_default(self):
+        self.assertIn(core.MIN_PLAUSIBLE_PING_MS, core.FAKE_THRESHOLD_CHOICES)
+        self.assertIn(0, core.FAKE_THRESHOLD_CHOICES)
+
+
 class WgCryptoTests(unittest.TestCase):
     def test_x25519_rfc7748_vector(self):
         scalar = bytes.fromhex('a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4')
