@@ -61,6 +61,9 @@ PROVIDER_SURFSHARK = 'surfshark'
 # نشانه‌ی هر سرویس در نام کانفیگ‌ها: فقط ایموجی، بدون نام یا لوگوی برند
 PROVIDER_MARKERS = {PROVIDER_PROTON: '🟣', PROVIDER_SURFSHARK: '🦈'}
 SURFSHARK_CATALOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'surfshark', 'servers.json')
+# آدرس و DNS پیش‌فرض تونل Surfshark؛ فقط کلید خصوصی از کاربر گرفته می‌شود
+SURFSHARK_ADDRESS = '10.14.0.2/16'
+SURFSHARK_DNS = '162.252.172.57, 149.154.159.92'
 
 CC_TO_NAME = {
     'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'CR': 'Costa Rica', 'PA': 'Panama', 'PR': 'Puerto Rico',
@@ -256,34 +259,12 @@ def load_surfshark_catalog(path=SURFSHARK_CATALOG_FILE):
     return servers
 
 
-def parse_surfshark_conf(text):
-    """کلید خصوصی، آدرس و DNS از فایل .conf که کاربر از Surfshark گرفته است.
-
-    فقط بخش [Interface] خوانده می‌شود. کلید عمومی سرورها از فهرست برنامه می‌آید و نیازی به فایل ندارد.
-    """
-    section = ''
-    values = {}
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith('#'):
-            continue
-        if line.startswith('[') and line.endswith(']'):
-            section = line[1:-1].strip().lower()
-            continue
-        if section != 'interface' or '=' not in line:
-            continue
-        key, value = (part.strip() for part in line.split('=', 1))
-        values.setdefault(key.lower(), value)
-
-    private_key = values.get('privatekey', '')
-    if not is_valid_wg_key(private_key):
+def surfshark_identity(private_key):
+    """حساب Surfshark فقط با کلید خصوصی ساخته می‌شود؛ آدرس و DNS تونل همان مقادیر پیش‌فرض Surfshark است."""
+    key = (private_key or '').strip()
+    if not is_valid_wg_key(key):
         raise ConfigError('bad_private_key', 'WireGuard private key is invalid (44 base64 characters)')
-    address = values.get('address', '').split(',')[0].strip()
-    try:
-        ipaddress.ip_interface(address)
-    except ValueError:
-        raise ConfigError('bad_address', 'WireGuard address is missing or invalid') from None
-    return WgIdentity(private_key=private_key, address=address, dns=values.get('dns', '') or WG_DNS)
+    return WgIdentity(private_key=key, address=SURFSHARK_ADDRESS, dns=SURFSHARK_DNS)
 
 
 def filter_by_tier(servers, mode):

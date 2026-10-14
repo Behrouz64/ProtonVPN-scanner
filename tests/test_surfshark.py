@@ -70,31 +70,18 @@ class SurfsharkCatalogTests(unittest.TestCase):
         self.assertEqual(first['name'], f"{first['cc']}-{first['city']}")
 
 
-class SurfsharkConfTests(unittest.TestCase):
-    def conf(self, address='10.14.0.2/16, fd00::2/128', dns='162.252.172.57, 149.154.159.92', key=TEST_PRIVATE):
-        return (f"[Interface]\nPrivateKey = {key}\nAddress = {address}\nDNS = {dns}\n\n"
-                f"[Peer]\nPublicKey = {TEST_PUBLIC}\nEndpoint = de-ber.prod.surfshark.com:51820\n")
-
-    def test_reads_key_address_and_dns_from_interface(self):
-        identity = core.parse_surfshark_conf(self.conf())
+class SurfsharkKeyTests(unittest.TestCase):
+    def test_private_key_alone_creates_identity_with_default_tunnel(self):
+        identity = core.surfshark_identity(f'  {TEST_PRIVATE}  ')
         self.assertEqual(identity.private_key, TEST_PRIVATE)
-        self.assertEqual(identity.address, '10.14.0.2/16')
-        self.assertEqual(identity.dns, '162.252.172.57, 149.154.159.92')
-
-    def test_ignores_peer_section_and_comments(self):
-        text = '# comment\n' + self.conf().replace('[Peer]', '[Peer]\n# note')
-        identity = core.parse_surfshark_conf(text)
-        self.assertEqual(identity.private_key, TEST_PRIVATE)
+        self.assertEqual(identity.address, core.SURFSHARK_ADDRESS)
+        self.assertEqual(identity.dns, core.SURFSHARK_DNS)
 
     def test_invalid_key_is_rejected(self):
-        with self.assertRaises(core.ConfigError) as ctx:
-            core.parse_surfshark_conf(self.conf(key='not-a-key'))
-        self.assertEqual(ctx.exception.code, 'bad_private_key')
-
-    def test_missing_or_bad_address_is_rejected(self):
-        with self.assertRaises(core.ConfigError) as ctx:
-            core.parse_surfshark_conf(self.conf(address='not an address'))
-        self.assertEqual(ctx.exception.code, 'bad_address')
+        for value in ('', 'not-a-key', TEST_PUBLIC + 'x'):
+            with self.subTest(value=value), self.assertRaises(core.ConfigError) as ctx:
+                core.surfshark_identity(value)
+            self.assertEqual(ctx.exception.code, 'bad_private_key')
 
 
 class SurfsharkConfigTests(unittest.TestCase):

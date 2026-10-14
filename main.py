@@ -29,7 +29,6 @@ CONFIG_ERROR_KEYS = {
     'bad_ip': 'err_bad_ip',
     'bad_private_key': 'err_key_invalid',
     'key_file_exists': 'err_key_file_exists',
-    'bad_address': 'err_bad_address',
 }
 QR_HINT_KEYS = {'config': 'qr_hint_config', 'link': 'qr_hint_link'}
 AWG_ERROR_KEYS = {'number': 'err_awg_number', 'range': 'err_awg_range', 'order': 'err_awg_order'}
@@ -297,9 +296,9 @@ class ScannerApp:
         self.results_header = ft.Text('', size=13, weight=ft.FontWeight.BOLD, color=ui.TEXT_MUTED)
         self.results_list = ft.Column(spacing=10)
         self.surfshark_field = ft.TextField(
-            label=t('surfshark_label'), value=self.surfshark_text, multiline=True, min_lines=3, max_lines=6,
+            label=t('surfshark_label'), value=self.surfshark_text, password=True, can_reveal_password=True,
             on_change=self.on_surfshark_change, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
-            bgcolor=ui.SURFACE, color=ui.TEXT, text_size=12,
+            bgcolor=ui.SURFACE, color=ui.TEXT, text_size=13,
         )
         self.surfshark_status = ui.body_text('', color=ui.TEXT_MUTED, size=12)
         return ft.Column(
@@ -550,17 +549,13 @@ class ScannerApp:
         self.private_key = e.control.value or ''
 
     async def on_surfshark_change(self, e):
-        text = e.control.value or ''
-        self.surfshark_text = text
+        self.surfshark_text = e.control.value or ''
         self.surfshark_identity = None
-        if not text.strip():
+        if not self.surfshark_text.strip():
             self.surfshark_status.value = ''
         else:
             try:
-                self.surfshark_identity = core.parse_surfshark_conf(text)
-                # متن فایل پس از خواندن پاک می‌شود تا کلید روی صفحه نماند؛ کلید فقط در حافظه می‌ماند
-                self.surfshark_text = ''
-                e.control.value = ''
+                self.surfshark_identity = core.surfshark_identity(self.surfshark_text)
                 self.surfshark_status.value = self.t('surfshark_ready')
                 self.surfshark_status.color = ui.SUCCESS
             except core.ConfigError as exc:
