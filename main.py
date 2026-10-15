@@ -313,15 +313,18 @@ class ScannerApp:
             t('btn_export_untested', n=self.settings['bulk_count']), self.on_export_untested,
             icon=ft.Icons.DOWNLOAD)
         bulk = self.settings['bulk_count']
-        self.btn_copy_all = ui.secondary_button(t('btn_copy_all_links', count=0), self.on_copy_all_links,
-                                                icon=ft.Icons.LINK)
+        self.btn_copy_every = ui.secondary_button(t('btn_copy_every_links', count=0), self.on_copy_every_links,
+                                                  icon=ft.Icons.LINK)
+        self.btn_copy_active = ui.secondary_button(t('btn_copy_active_links', count=0), self.on_copy_active_links,
+                                                   icon=ft.Icons.LINK)
         self.btn_copy_top = ui.secondary_button(t('btn_copy_top_links', n=bulk), self.on_copy_top_links,
                                                 icon=ft.Icons.LINK)
         return ft.Column(
             [
                 ui.card(
                     ui.heading(t('export_title')),
-                    ft.Row([self.btn_copy_all], spacing=8),
+                    ft.Row([self.btn_copy_every], spacing=8),
+                    ft.Row([self.btn_copy_active], spacing=8),
                     ft.Row([self.btn_copy_top], spacing=8),
                     ft.Row([self.btn_export], spacing=8),
                     ft.Row([self.btn_export_untested], spacing=8),
@@ -534,8 +537,10 @@ class ScannerApp:
         self.btn_export.content = self.t('btn_export', n=bulk)
         self.btn_export_untested.disabled = busy or not scope
         self.btn_export_untested.content = self.t('btn_export_untested', n=bulk)
-        self.btn_copy_all.disabled = busy or not alive
-        self.btn_copy_all.content = self.t('btn_copy_all_links', count=len(alive))
+        self.btn_copy_every.disabled = busy or not scope
+        self.btn_copy_every.content = self.t('btn_copy_every_links', count=len(scope))
+        self.btn_copy_active.disabled = busy or not alive
+        self.btn_copy_active.content = self.t('btn_copy_active_links', count=len(alive))
         self.btn_copy_top.disabled = busy or not alive
         self.btn_copy_top.content = self.t('btn_copy_top_links', n=min(bulk, len(alive)))
         rows = core.browse_order(scope, self.last_valid, self.tested_ids)
@@ -1003,19 +1008,21 @@ class ScannerApp:
         )
         self.page.show_dialog(dialog)
 
-    async def on_copy_all_links(self, e=None):
-        await self.guarded(lambda: self.do_copy_links(None))
+    async def on_copy_every_links(self, e=None):
+        rows = core.browse_order(self.scope_servers(), self.last_valid, self.tested_ids)
+        await self.guarded(lambda: self.do_copy_links([server for _, server in rows], 'browse_empty'))
+
+    async def on_copy_active_links(self, e=None):
+        await self.guarded(lambda: self.do_copy_links(self.alive_in_scope(), 'no_alive_in_scope'))
 
     async def on_copy_top_links(self, e=None):
-        await self.guarded(lambda: self.do_copy_links(self.settings['bulk_count']))
+        top = self.alive_in_scope()[:self.settings['bulk_count']]
+        await self.guarded(lambda: self.do_copy_links(top, 'no_alive_in_scope'))
 
-    async def do_copy_links(self, limit):
-        """wg:// همه‌ی سرورهای فعال محدوده (limit=None) یا N سرور برتر را در کلیپ‌بورد می‌گذارد."""
-        servers = self.alive_in_scope()
-        if limit is not None:
-            servers = servers[:limit]
+    async def do_copy_links(self, servers, empty_key):
+        """wg:// سرورهای داده‌شده را در کلیپ‌بورد می‌گذارد؛ ترتیب همان ترتیب فهرست است."""
         if not servers:
-            raise UserError('no_alive_in_scope')
+            raise UserError(empty_key)
         ready, _ = await asyncio.to_thread(core.config_ready, servers, self.surfshark_ip_source())
         obfuscation = self.obfuscation()
         links, skipped = [], 0
@@ -1027,7 +1034,7 @@ class ScannerApp:
             except core.ConfigError:
                 skipped += 1
         if not links:
-            raise UserError('no_alive_in_scope')
+            raise UserError(empty_key)
         cc = core.cc_from_label(self.country)
         if cc != core.ALL_COUNTRIES:
             scope = self.country
