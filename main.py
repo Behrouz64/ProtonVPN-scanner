@@ -1,4 +1,4 @@
-"""ProtonVPN Scanner نسخه‌ی 1.0.2 با Flet — رابط دو زبانه (فارسی و English).
+"""ProtonVPN Scanner نسخه‌ی 1.0.3 با Flet — رابط دو زبانه (فارسی و English).
 
 منطق دیتابیس، پینگ و کانفیگ در scanner_core.py است؛ این فایل فقط وضعیت و رابط را مدیریت می‌کند.
 اجرا: python main.py

@@ -2,8 +2,8 @@
 
 ## نسخه‌های پشتیبانی‌شده | Supported versions
 
-فقط آخرین نسخه‌ی این مخزن (فعلاً `1.0.2`) اصلاح امنیتی دریافت می‌کند.
-Only the latest version in this repository (currently `1.0.2`) receives security fixes.
+فقط آخرین نسخه‌ی این مخزن (فعلاً `1.0.3`) اصلاح امنیتی دریافت می‌کند.
+Only the latest version in this repository (currently `1.0.3`) receives security fixes.
 
 ## گزارش یک آسیب‌پذیری | Reporting a vulnerability
 

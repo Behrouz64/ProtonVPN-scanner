@@ -9,7 +9,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class ReleaseTests(unittest.TestCase):
     def test_app_version_is_1_0_2(self):
-        self.assertEqual(core.APP_VERSION, '1.0.2')
+        self.assertEqual(core.APP_VERSION, '1.0.3')
 
     def test_pyproject_version_matches_app_version(self):
         with open(os.path.join(ROOT, 'pyproject.toml'), encoding='utf-8') as f:

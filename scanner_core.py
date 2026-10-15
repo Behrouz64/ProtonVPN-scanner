@@ -23,7 +23,7 @@ try:
 except ImportError:  # qrcode فقط برای نمایش QR لازم است
     qrcode = None
 
-APP_VERSION = '1.0.2'
+APP_VERSION = '1.0.3'
 
 # لینک‌های ضد فیلتر و کمکی برای دانلود از گیت‌هاب در ایران
 GITHUB_MIRRORS = [
