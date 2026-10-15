@@ -103,7 +103,10 @@ class ScannerApp:
         return os.path.join(self.support_dir, 'wireguard')
 
     def obfuscation(self):
-        return app_settings.obfuscation_for_build(self.settings)
+        return app_settings.card_obfuscation(self.settings)
+
+    def export_obfuscations(self):
+        return app_settings.export_obfuscations(self.settings)
 
     def selected_value(self, control):
         return next(iter(control.selected))
@@ -298,7 +301,7 @@ class ScannerApp:
             bgcolor=ui.SURFACE, color=ui.TEXT, text_size=13,
         )
         self.btn_export = ui.secondary_button(t('btn_export'), self.on_export, icon=ft.Icons.DOWNLOAD)
-        self.btn_export_untested = ui.secondary_button(t('btn_export_untested'), self.on_export_untested,
+        self.btn_export_untested = ui.secondary_button(t('btn_export_untested', n=self.settings['untested_export_count']), self.on_export_untested,
                                                        icon=ft.Icons.DOWNLOAD)
         self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
         self.results_header = ft.Text('', size=13, weight=ft.FontWeight.BOLD, color=ui.TEXT_MUTED)
@@ -346,11 +349,23 @@ class ScannerApp:
             selected=[self.lang],
             on_change=self.on_language,
         )
-        self.obfs_switch = ft.Switch(
-            label=t('settings_obfs_switch'), value=self.settings['obfuscation_enabled'],
-            on_change=self.on_obfs_toggle, active_color=ui.PRIMARY,
+        self.formats_seg = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=core.EXPORT_WG, label=ft.Text(t('format_wg'))),
+                ft.Segment(value=core.EXPORT_AWG, label=ft.Text(t('format_awg'))),
+                ft.Segment(value=core.EXPORT_BOTH, label=ft.Text(t('format_both'))),
+            ],
+            selected=[self.settings['export_formats']],
+            on_change=self.on_export_formats,
         )
-        self.obfs_hint = ui.body_text(self.obfs_hint_text(), color=ui.TEXT_MUTED, size=12)
+        self.obfs_hint = ui.body_text(self.formats_hint_text(), color=ui.TEXT_MUTED, size=12)
+        self.untested_count_dd = ft.Dropdown(
+            value=str(self.settings['untested_export_count']),
+            options=[ft.DropdownOption(key=str(n), text=t('untested_count_option', n=n))
+                     for n in core.UNTESTED_EXPORT_CHOICES],
+            on_select=self.on_untested_count, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
+            bgcolor=ui.SURFACE, color=ui.TEXT, width=260,
+        )
         self.scan_mode_seg = ft.SegmentedButton(
             segments=[
                 ft.Segment(value=core.SCAN_WITH_KEY, label=ft.Text(t('scan_mode_key'))),
@@ -403,11 +418,15 @@ class ScannerApp:
                     ui.heading(t('settings_ip_limit')),
                     self.ip_limit_dd,
                     ui.body_text(t('settings_ip_limit_hint'), color=ui.TEXT_MUTED, size=12),
+                    ui.heading(t('settings_untested_count')),
+                    self.untested_count_dd,
+                    ui.body_text(t('settings_untested_count_hint'), color=ui.TEXT_MUTED, size=12),
                 ),
                 ui.card(
-                    ui.heading(t('settings_obfs')),
-                    self.obfs_switch,
+                    ui.heading(t('settings_formats')),
+                    self.formats_seg,
                     self.obfs_hint,
+                    ui.heading(t('settings_obfs')),
                     ft.Row(field_controls, wrap=True, spacing=10, run_spacing=10),
                     ui.body_text(t('settings_obfs_hint'), color=ui.TEXT_MUTED, size=12),
                     ft.Row([ui.secondary_button(t('settings_reset'), self.on_reset_obfs,
@@ -429,8 +448,9 @@ class ScannerApp:
             spacing=12,
         )
 
-    def obfs_hint_text(self):
-        key = 'settings_obfs_on' if self.settings['obfuscation_enabled'] else 'settings_obfs_off'
+    def formats_hint_text(self):
+        key = {core.EXPORT_WG: 'formats_hint_wg', core.EXPORT_AWG: 'formats_hint_awg'}.get(
+            self.settings['export_formats'], 'formats_hint_both')
         return self.t(key)
 
     # ---------- وضعیت و به‌روزرسانی رابط ----------
@@ -946,14 +966,18 @@ class ScannerApp:
         """کانفیگ‌های فیلتر فعلی را بدون هیچ تستی خروجی می‌گیرد (همان ترتیب فهرست، حداکثر ۱۵ سرور)."""
         cc = core.cc_from_label(self.country)
         active_map = self.index.active_map if self.index else {}
-        servers = core.filter_servers(self.all_filtered, self.continent, cc, active_map)[:core.TOP_N]
+        servers = core.filter_servers(self.all_filtered, self.continent, cc, active_map)[:self.settings['untested_export_count']]
         if not servers:
             raise UserError('export_nothing')
         await self.export_servers(servers)
 
+    def export_kind_label(self):
+        return {core.EXPORT_WG: 'WireGuard', core.EXPORT_AWG: 'AmneziaWG'}.get(
+            self.settings['export_formats'], 'WireGuard + AmneziaWG')
+
     async def export_servers(self, servers):
-        obfuscation = self.obfuscation()
         ips_for = self.surfshark_ip_source()
+        formats = self.export_obfuscations()
         hostname_used = []
         written, skipped = [], []
         for provider in (core.PROVIDER_PROTON, core.PROVIDER_SURFSHARK):
@@ -965,11 +989,12 @@ class ScannerApp:
             if not ready:
                 continue
             ident = self.identity_for(ready[0], required=False)
-            done, failed = await asyncio.to_thread(core.export_wireguard_configs, ready, self.export_dir,
-                                                   ident.private_key, obfuscation, ident.address, ident.dns)
-            written += done
-            skipped += failed
-        kind = 'AmneziaWG' if obfuscation else 'WireGuard'
+            for obfuscation in formats:
+                done, failed = await asyncio.to_thread(core.export_wireguard_configs, ready, self.export_dir,
+                                                       ident.private_key, obfuscation, ident.address, ident.dns)
+                written += done
+                skipped += failed
+        kind = self.export_kind_label()
         if skipped:
             self.toast('warn', 'exported_partial', count=len(written), kind=kind, path=self.export_dir,
                        skipped=len(skipped))
@@ -995,9 +1020,15 @@ class ScannerApp:
         await self.save_settings()
         self.page.update()
 
-    async def on_obfs_toggle(self, e):
-        self.settings['obfuscation_enabled'] = bool(e.control.value)
-        self.obfs_hint.value = self.obfs_hint_text()
+    async def on_export_formats(self, e):
+        self.settings['export_formats'] = self.selected_value(e.control)
+        self.obfs_hint.value = self.formats_hint_text()
+        await self.save_settings()
+        self.page.update()
+
+    async def on_untested_count(self, e):
+        self.settings['untested_export_count'] = int(e.control.value)
+        self.btn_export_untested.content = self.t('btn_export_untested', n=self.settings['untested_export_count'])
         await self.save_settings()
         self.page.update()
 

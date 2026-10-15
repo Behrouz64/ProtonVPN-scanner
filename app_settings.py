@@ -1,4 +1,4 @@
-"""تنظیمات برنامه: زبان، پنهان‌سازی AmneziaWG، روش اسکن و آستانه‌ی پاسخ فیک.
+"""تنظیمات برنامه: زبان، قالب کانفیگ‌ها، پارامترهای AmneziaWG، روش اسکن و آستانه‌ی پاسخ فیک.
 
 فقط منطق خالص است و به رابط گرافیکی وابسته نیست؛ ذخیره‌سازی واقعی در main.py انجام می‌شود.
 کلید خصوصی WireGuard عمداً در تنظیمات نیست و هیچ‌وقت ذخیره نمی‌شود.
@@ -14,11 +14,12 @@ SETTINGS_VERSION = 1
 def default_settings():
     return {
         'language': i18n.DEFAULT_LANGUAGE,
-        'obfuscation_enabled': True,
+        'export_formats': core.EXPORT_BOTH,
         'obfuscation': dict(core.DEFAULT_OBFUSCATION),
         'scan_mode': core.SCAN_WITH_KEY,
         'fake_threshold_ms': core.MIN_PLAUSIBLE_PING_MS,
         'surfshark_ip_limit': core.SURFSHARK_IP_DEFAULT,
+        'untested_export_count': core.UNTESTED_EXPORT_DEFAULT,
     }
 
 
@@ -33,8 +34,11 @@ def load_settings(text):
         return settings
 
     settings['language'] = i18n.normalize_language(data.get('language'))
-    if isinstance(data.get('obfuscation_enabled'), bool):
-        settings['obfuscation_enabled'] = data['obfuscation_enabled']
+    if data.get('export_formats') in core.EXPORT_FORMATS:
+        settings['export_formats'] = data['export_formats']
+    elif isinstance(data.get('obfuscation_enabled'), bool):
+        # نسخه‌ی قبلی فقط یک کلید روشن/خاموش داشت: روشن یعنی هر دو قالب، خاموش یعنی WireGuard استاندارد
+        settings['export_formats'] = core.EXPORT_BOTH if data['obfuscation_enabled'] else core.EXPORT_WG
     raw = data.get('obfuscation')
     if isinstance(raw, dict):
         params, errors = core.check_obfuscation(raw)
@@ -48,6 +52,9 @@ def load_settings(text):
     ip_limit = data.get('surfshark_ip_limit')
     if isinstance(ip_limit, int) and not isinstance(ip_limit, bool) and ip_limit in core.SURFSHARK_IP_CHOICES:
         settings['surfshark_ip_limit'] = ip_limit
+    count = data.get('untested_export_count')
+    if isinstance(count, int) and not isinstance(count, bool) and count in core.UNTESTED_EXPORT_CHOICES:
+        settings['untested_export_count'] = count
     return settings
 
 
@@ -55,11 +62,12 @@ def dump_settings(settings):
     payload = {
         'version': SETTINGS_VERSION,
         'language': i18n.normalize_language(settings['language']),
-        'obfuscation_enabled': bool(settings['obfuscation_enabled']),
+        'export_formats': settings.get('export_formats', core.EXPORT_BOTH),
         'obfuscation': settings['obfuscation'],
         'scan_mode': settings.get('scan_mode', core.SCAN_WITH_KEY),
         'fake_threshold_ms': settings.get('fake_threshold_ms', core.MIN_PLAUSIBLE_PING_MS),
         'surfshark_ip_limit': settings.get('surfshark_ip_limit', core.SURFSHARK_IP_DEFAULT),
+        'untested_export_count': settings.get('untested_export_count', core.UNTESTED_EXPORT_DEFAULT),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -69,11 +77,26 @@ def reset_obfuscation(settings):
     return {**settings, 'obfuscation': dict(core.DEFAULT_OBFUSCATION)}
 
 
-def obfuscation_for_build(settings):
-    """پارامترهایی که باید به کانفیگ اضافه شوند، یا None برای WireGuard ساده."""
-    if not settings['obfuscation_enabled']:
-        return None
+def _checked_params(settings):
     params, errors = core.check_obfuscation(settings['obfuscation'])
     if errors:
         raise ValueError('obfuscation settings are invalid')
     return params
+
+
+def card_obfuscation(settings):
+    """پارامترهای AmneziaWG برای کارت‌های سرور (کپی، QR، ذخیره‌ی تکی) و لینک wg://.
+
+    فقط در حالت AmneziaWG مقدار دارد؛ در بقیه‌ی حالت‌ها WireGuard استاندارد است.
+    """
+    if settings.get('export_formats') != core.EXPORT_AWG:
+        return None
+    return _checked_params(settings)
+
+
+def export_obfuscations(settings):
+    """برای هر فایل خروجی یک مدخل: None یعنی WireGuard استاندارد، دیکشنری یعنی AmneziaWG."""
+    formats = settings.get('export_formats', core.EXPORT_BOTH)
+    plain = [None] if formats in (core.EXPORT_WG, core.EXPORT_BOTH) else []
+    awg = [_checked_params(settings)] if formats in (core.EXPORT_AWG, core.EXPORT_BOTH) else []
+    return plain + awg

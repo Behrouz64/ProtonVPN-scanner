@@ -47,6 +47,12 @@ TOP_N = 15
 MIN_PLAUSIBLE_PING_MS = 10
 # گزینه‌های آستانه‌ی پاسخ فیک در تنظیمات؛ ۰ یعنی هیچ پاسخی حذف نشود
 FAKE_THRESHOLD_CHOICES = (0, 5, 10, 20, 50)
+EXPORT_WG = 'wg'
+EXPORT_AWG = 'awg'
+EXPORT_BOTH = 'both'
+EXPORT_FORMATS = (EXPORT_BOTH, EXPORT_WG, EXPORT_AWG)
+UNTESTED_EXPORT_CHOICES = (5, 10, 15, 25, 50)
+UNTESTED_EXPORT_DEFAULT = 15
 
 PROTON_UDP_PROBE = b'\x38\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 

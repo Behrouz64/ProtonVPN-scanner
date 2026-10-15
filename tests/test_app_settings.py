@@ -8,10 +8,10 @@ VALID_KEY = 'A' * 43 + '='
 
 
 class DefaultsAndLoadTests(unittest.TestCase):
-    def test_defaults_are_persian_obfuscation_on_suggested_values(self):
+    def test_defaults_are_persian_both_formats_and_suggested_values(self):
         settings = app_settings.default_settings()
         self.assertEqual(settings['language'], 'fa')
-        self.assertTrue(settings['obfuscation_enabled'])
+        self.assertEqual(settings['export_formats'], core.EXPORT_BOTH)
         self.assertEqual(settings['obfuscation'], core.DEFAULT_OBFUSCATION)
 
     def test_missing_or_broken_text_gives_defaults(self):
@@ -25,11 +25,11 @@ class DefaultsAndLoadTests(unittest.TestCase):
         self.assertEqual(settings['language'], 'fa')
 
     def test_valid_saved_values_are_kept_and_normalized(self):
-        text = json.dumps({'language': 'en', 'obfuscation_enabled': False,
+        text = json.dumps({'language': 'en', 'export_formats': core.EXPORT_WG,
                            'obfuscation': {**core.DEFAULT_OBFUSCATION, 'Jc': '7', 'H1': '100-200'}})
         settings = app_settings.load_settings(text)
         self.assertEqual(settings['language'], 'en')
-        self.assertFalse(settings['obfuscation_enabled'])
+        self.assertEqual(settings['export_formats'], core.EXPORT_WG)
         self.assertEqual((settings['obfuscation']['Jc'], settings['obfuscation']['H1']), (7, '100-200'))
 
     def test_invalid_obfuscation_block_falls_back_to_suggested_values(self):
@@ -44,9 +44,74 @@ class DefaultsAndLoadTests(unittest.TestCase):
         settings = app_settings.load_settings(json.dumps({'obfuscation': block}))
         self.assertEqual(settings['obfuscation'], core.DEFAULT_OBFUSCATION)
 
-    def test_non_boolean_switch_is_ignored(self):
+    def test_unknown_export_format_falls_back_to_both(self):
+        for value in ('all', 'WG', None, True):
+            with self.subTest(value=value):
+                loaded = app_settings.load_settings(json.dumps({'export_formats': value}))
+                self.assertEqual(loaded['export_formats'], core.EXPORT_BOTH)
+
+    def test_old_switch_is_migrated(self):
+        on = app_settings.load_settings(json.dumps({'obfuscation_enabled': True}))
+        off = app_settings.load_settings(json.dumps({'obfuscation_enabled': False}))
+        self.assertEqual(on['export_formats'], core.EXPORT_BOTH)
+        self.assertEqual(off['export_formats'], core.EXPORT_WG)
+
+    def test_new_format_wins_over_old_switch(self):
+        text = json.dumps({'obfuscation_enabled': False, 'export_formats': core.EXPORT_AWG})
+        self.assertEqual(app_settings.load_settings(text)['export_formats'], core.EXPORT_AWG)
+
+    def test_non_boolean_old_switch_is_ignored(self):
         settings = app_settings.load_settings(json.dumps({'obfuscation_enabled': 'no'}))
-        self.assertTrue(settings['obfuscation_enabled'])
+        self.assertEqual(settings['export_formats'], core.EXPORT_BOTH)
+
+
+class ExportFormatTests(unittest.TestCase):
+    def settings_with(self, formats):
+        return {**app_settings.default_settings(), 'export_formats': formats}
+
+    def test_both_writes_a_standard_and_an_amneziawg_file(self):
+        obfs = app_settings.export_obfuscations(self.settings_with(core.EXPORT_BOTH))
+        self.assertEqual(len(obfs), 2)
+        self.assertIsNone(obfs[0])
+        self.assertEqual(obfs[1]['Jc'], core.DEFAULT_OBFUSCATION['Jc'])
+
+    def test_wg_writes_only_standard_files(self):
+        self.assertEqual(app_settings.export_obfuscations(self.settings_with(core.EXPORT_WG)), [None])
+
+    def test_awg_writes_only_amneziawg_files(self):
+        obfs = app_settings.export_obfuscations(self.settings_with(core.EXPORT_AWG))
+        self.assertEqual(len(obfs), 1)
+        self.assertIsNotNone(obfs[0])
+
+    def test_server_cards_are_standard_unless_awg_is_chosen(self):
+        self.assertIsNone(app_settings.card_obfuscation(self.settings_with(core.EXPORT_BOTH)))
+        self.assertIsNone(app_settings.card_obfuscation(self.settings_with(core.EXPORT_WG)))
+        self.assertIsNotNone(app_settings.card_obfuscation(self.settings_with(core.EXPORT_AWG)))
+
+    def test_invalid_amneziawg_parameters_refuse_the_export(self):
+        settings = {**self.settings_with(core.EXPORT_BOTH), 'obfuscation': {**core.DEFAULT_OBFUSCATION, 'Jmax': 1}}
+        with self.assertRaises(ValueError):
+            app_settings.export_obfuscations(settings)
+
+    def test_standard_export_ignores_invalid_amneziawg_parameters(self):
+        settings = {**self.settings_with(core.EXPORT_WG), 'obfuscation': {**core.DEFAULT_OBFUSCATION, 'Jmax': 1}}
+        self.assertEqual(app_settings.export_obfuscations(settings), [None])
+
+
+class UntestedCountTests(unittest.TestCase):
+    def test_default_is_fifteen(self):
+        self.assertEqual(app_settings.default_settings()['untested_export_count'], 15)
+        self.assertEqual(core.UNTESTED_EXPORT_DEFAULT, 15)
+
+    def test_only_listed_counts_are_loaded(self):
+        for value in core.UNTESTED_EXPORT_CHOICES:
+            loaded = app_settings.load_settings(json.dumps({'untested_export_count': value}))
+            self.assertEqual(loaded['untested_export_count'], value)
+        for payload in ({'untested_export_count': 7}, {'untested_export_count': True},
+                        {'untested_export_count': '15'}, {'untested_export_count': 0}):
+            with self.subTest(payload=payload):
+                loaded = app_settings.load_settings(json.dumps(payload))
+                self.assertEqual(loaded['untested_export_count'], core.UNTESTED_EXPORT_DEFAULT)
 
 
 class ScanSettingsTests(unittest.TestCase):
@@ -97,25 +162,27 @@ class IpLimitSettingsTests(unittest.TestCase):
 
 class RoundTripAndBuildTests(unittest.TestCase):
     def test_dump_then_load_gives_same_settings(self):
-        settings = {'language': 'en', 'obfuscation_enabled': False,
-                    'obfuscation': {**core.DEFAULT_OBFUSCATION, 'S1': 3}}
+        settings = {**app_settings.default_settings(), 'language': 'en', 'export_formats': core.EXPORT_AWG,
+                    'obfuscation': {**core.DEFAULT_OBFUSCATION, 'S1': 3}, 'untested_export_count': 25}
         loaded = app_settings.load_settings(app_settings.dump_settings(settings))
         self.assertEqual(loaded['language'], 'en')
-        self.assertFalse(loaded['obfuscation_enabled'])
+        self.assertEqual(loaded['export_formats'], core.EXPORT_AWG)
         self.assertEqual(loaded['obfuscation']['S1'], 3)
+        self.assertEqual(loaded['untested_export_count'], 25)
 
     def test_saved_file_never_contains_a_private_key_field(self):
         saved = json.loads(app_settings.dump_settings(app_settings.default_settings()))
-        self.assertEqual(set(saved), {'version', 'language', 'obfuscation_enabled', 'obfuscation', 'scan_mode', 'fake_threshold_ms', 'surfshark_ip_limit'})
+        self.assertEqual(set(saved), {'version', 'language', 'export_formats', 'obfuscation', 'scan_mode',
+                                      'fake_threshold_ms', 'surfshark_ip_limit', 'untested_export_count'})
         self.assertNotIn(VALID_KEY, app_settings.dump_settings(app_settings.default_settings()))
 
     def test_reset_restores_suggested_values_only(self):
-        settings = {'language': 'en', 'obfuscation_enabled': False,
+        settings = {**app_settings.default_settings(), 'language': 'en', 'export_formats': core.EXPORT_WG,
                     'obfuscation': {**core.DEFAULT_OBFUSCATION, 'Jc': 99}}
         reset = app_settings.reset_obfuscation(settings)
         self.assertEqual(reset['obfuscation'], core.DEFAULT_OBFUSCATION)
         self.assertEqual(reset['language'], 'en')
-        self.assertFalse(reset['obfuscation_enabled'])
+        self.assertEqual(reset['export_formats'], core.EXPORT_WG)
 
     def test_reset_does_not_change_the_original_dict(self):
         settings = app_settings.default_settings()
@@ -123,20 +190,11 @@ class RoundTripAndBuildTests(unittest.TestCase):
         app_settings.reset_obfuscation(settings)
         self.assertEqual(settings['obfuscation']['Jc'], 99)
 
-    def test_build_parameters_are_none_when_obfuscation_is_off(self):
-        settings = {**app_settings.default_settings(), 'obfuscation_enabled': False}
-        self.assertIsNone(app_settings.obfuscation_for_build(settings))
-
-    def test_build_parameters_are_normalized_when_on(self):
-        params = app_settings.obfuscation_for_build(app_settings.default_settings())
+    def test_build_parameters_are_normalized_when_amneziawg_is_chosen(self):
+        params = app_settings.card_obfuscation(
+            {**app_settings.default_settings(), 'export_formats': core.EXPORT_AWG})
         self.assertEqual(params['Jc'], 4)
         self.assertEqual(params['H4'], '4')
-
-    def test_build_refuses_invalid_settings(self):
-        settings = app_settings.default_settings()
-        settings['obfuscation'] = {**core.DEFAULT_OBFUSCATION, 'Jmax': 1}
-        with self.assertRaises(ValueError):
-            app_settings.obfuscation_for_build(settings)
 
 
 if __name__ == '__main__':
