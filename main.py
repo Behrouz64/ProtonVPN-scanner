@@ -73,6 +73,8 @@ class ScannerApp:
         self.all_filtered = []
         self.tested_ids = set()
         self.browse_limit = core.BROWSE_PAGE
+        self.ip_memo = {}
+        self.ip_pending = set()
         self.continent = core.ALL_CONTINENTS
         self.country = core.ALL_COUNTRIES
         self.scan_selection = (core.ALL_CONTINENTS, core.ALL_COUNTRIES)
@@ -244,9 +246,11 @@ class ScannerApp:
             border_radius=16,
             padding=16,
         )
+        self.scan_provider_seg = self.provider_segment()
         return ft.Column(
             [
                 self.result_banner,
+                ui.card(ui.heading(t('provider_title')), self.scan_provider_seg),
                 ui.card(ui.heading(t('step_database')),
                         ft.Row([self.btn_load], spacing=8),
                         self.db_text),
@@ -265,10 +269,9 @@ class ScannerApp:
             spacing=12,
         )
 
-    def build_servers_tab(self):
-        """تب سرورها: محدوده، فهرست سرورها با وضعیت تست، خروجی گروهی و کلیدها؛ همه بدون نیاز به اسکن."""
+    def provider_segment(self):
         t = self.t
-        self.provider_seg = ft.SegmentedButton(
+        return ft.SegmentedButton(
             segments=[
                 ft.Segment(value=core.PROVIDER_PROTON, label=ft.Text(t('provider_proton'))),
                 ft.Segment(value=core.PROVIDER_SURFSHARK, label=ft.Text(t('provider_surfshark'))),
@@ -277,6 +280,11 @@ class ScannerApp:
             selected=[self.provider],
             on_change=self.on_provider,
         )
+
+    def build_servers_tab(self):
+        """تب سرورها: خروجی و کپی گروهی در بالا، سپس محدوده و فهرست سرورها با IP و وضعیت تست."""
+        t = self.t
+        self.provider_seg = self.provider_segment()
         self.mode_seg = ft.SegmentedButton(
             segments=[
                 ft.Segment(value='free', label=ft.Text(t('mode_free'))),
@@ -304,6 +312,34 @@ class ScannerApp:
             t('btn_export_untested', n=self.settings['untested_export_count']), self.on_export_untested,
             icon=ft.Icons.DOWNLOAD)
         self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
+        return ft.Column(
+            [
+                ui.card(
+                    ui.heading(t('export_title')),
+                    ft.Row([self.btn_links], spacing=8),
+                    ft.Row([self.btn_export], spacing=8),
+                    ft.Row([self.btn_export_untested], spacing=8),
+                    ui.body_text(t('export_untested_hint'), color=ui.TEXT_MUTED, size=12),
+                ),
+                ui.card(
+                    ui.heading(t('filter_title')),
+                    self.provider_seg,
+                    self.mode_seg,
+                    ft.Row([self.continent_dd, self.country_dd], spacing=8),
+                ),
+                ui.card(
+                    ui.heading(t('browse_title')),
+                    self.browse_header,
+                    self.browse_list,
+                    ft.Row([self.btn_more], spacing=8),
+                ),
+            ],
+            spacing=12,
+        )
+
+    def build_keys_cards(self):
+        """کلیدهای WireGuard هر سرویس و IP سرورهای Surfshark؛ کلیدها فقط در حافظه‌ی برنامه می‌مانند."""
+        t = self.t
         self.key_field = ft.TextField(
             label=t('key_label'), value=self.private_key, password=True, can_reveal_password=True,
             on_change=self.on_key_change, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
@@ -318,45 +354,23 @@ class ScannerApp:
         self.surfshark_status = ui.body_text('', color=ui.TEXT_MUTED, size=12)
         self.btn_fetch_ips = ui.secondary_button(t('btn_fetch_ips'), self.on_fetch_ips, icon=ft.Icons.CLOUD_DOWNLOAD)
         self.ip_status = ui.body_text(self.ip_status_text(), color=ui.TEXT_MUTED, size=12)
-        return ft.Column(
-            [
-                ui.card(
-                    ui.heading(t('filter_title')),
-                    self.provider_seg,
-                    self.mode_seg,
-                    ft.Row([self.continent_dd, self.country_dd], spacing=8),
-                ),
-                ui.card(
-                    ui.heading(t('browse_title')),
-                    self.browse_header,
-                    self.browse_list,
-                    ft.Row([self.btn_more], spacing=8),
-                ),
-                ui.card(
-                    ui.heading(t('export_title')),
-                    ft.Row([self.btn_links], spacing=8),
-                    ft.Row([self.btn_export], spacing=8),
-                    ft.Row([self.btn_export_untested], spacing=8),
-                    ui.body_text(t('export_untested_hint'), color=ui.TEXT_MUTED, size=12),
-                ),
-                ui.card(
-                    ui.heading(t('proton_key_title')),
-                    self.key_field,
-                    self.proton_key_status,
-                    ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
-                ),
-                ui.card(
-                    ui.heading(t('surfshark_title')),
-                    self.surfshark_field,
-                    self.surfshark_status,
-                    ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
-                    ft.Row([self.btn_fetch_ips], spacing=8),
-                    ui.body_text(t('fetch_ips_hint'), color=ui.TEXT_MUTED, size=12),
-                    self.ip_status,
-                ),
-            ],
-            spacing=12,
-        )
+        return [
+            ui.card(
+                ui.heading(t('proton_key_title')),
+                self.key_field,
+                self.proton_key_status,
+                ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
+            ),
+            ui.card(
+                ui.heading(t('surfshark_title')),
+                self.surfshark_field,
+                self.surfshark_status,
+                ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
+                ft.Row([self.btn_fetch_ips], spacing=8),
+                ui.body_text(t('fetch_ips_hint'), color=ui.TEXT_MUTED, size=12),
+                self.ip_status,
+            ),
+        ]
 
     def build_settings_tab(self):
         t = self.t
@@ -427,6 +441,7 @@ class ScannerApp:
         return ft.Column(
             [
                 ui.card(ui.heading(t('settings_language')), self.lang_seg),
+                *self.build_keys_cards(),
                 ui.card(
                     ui.heading(t('settings_scan')),
                     self.scan_mode_seg,
@@ -481,8 +496,12 @@ class ScannerApp:
         self.btn_load.content = self.t('btn_reload' if self.loaded_once else 'btn_load')
         self.btn_load.disabled = busy
         self.db_text.value = self.db_summary()
-        for control in (self.provider_seg, self.mode_seg, self.continent_dd, self.country_dd):
+        for control in (self.provider_seg, self.scan_provider_seg, self.mode_seg, self.continent_dd,
+                        self.country_dd):
             control.disabled = busy
+        for control in (self.provider_seg, self.scan_provider_seg):
+            control.selected = [self.provider]
+        self.mode_seg.selected = [self.mode]
         self.btn_scan.disabled = busy or not scope
         self.btn_next.disabled = busy or self.remaining <= 0
         self.btn_reset.disabled = busy or not (has_results or self.remaining or self.offset)
@@ -812,8 +831,28 @@ class ScannerApp:
                 'qr': self.handler(self.show_qr, server),
                 'save': self.handler(self.save_wg, server),
             }
-            items.append(ui.server_card(server, state, self.t, actions))
+            items.append(ui.server_card(server, state, self.t, actions, self.address_text(server)))
         return items
+
+    def address_text(self, server):
+        """نشانی نمایشی کارت: IP سرور. برای Surfshark پیش از اسکن، IP از کش یا فهرست همراه یا DNS می‌آید."""
+        if server.get('ip'):
+            return server['ip']
+        if server.get('provider') != core.PROVIDER_SURFSHARK:
+            return ''
+        host = server.get('hostname', '')
+        if host in self.ip_memo:
+            return self.ip_memo[host][0] if self.ip_memo[host] else host
+        if host not in self.ip_pending:
+            self.ip_pending.add(host)
+            self.page.run_task(self.lookup_ip, host)
+        return host
+
+    async def lookup_ip(self, host):
+        ips = await asyncio.to_thread(self.surfshark_ip_source(), host)
+        self.ip_memo[host] = ips
+        self.ip_pending.discard(host)
+        self.sync()
 
     def handler(self, action, server):
         async def on_click(e):
@@ -993,6 +1032,7 @@ class ScannerApp:
                                                 time.time(), core.SURFSHARK_IP_MAX)
         merged = surfshark_ips.merge_cache(surfshark_ips.load_cache(self.ip_cache_path), fresh)
         await asyncio.to_thread(surfshark_ips.save_cache, self.ip_cache_path, merged)
+        self.ip_memo.clear()
         self.ip_status.value = self.ip_status_text()
         self.page.update()
         if fresh:

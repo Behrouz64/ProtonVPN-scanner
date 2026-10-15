@@ -134,7 +134,7 @@ def flag(cc, size=20):
     return ft.Icon(ft.Icons.PUBLIC, size=size, color=TEXT_MUTED)
 
 
-def server_card(server, state, label, actions):
+def server_card(server, state, label, actions, address):
     """کارت یک سرور: وضعیت تست (پینگ، بی‌پاسخ یا تست‌نشده) و دکمه‌های کپی و QR.
 
     actions نگاشت نام عمل به تابع کلیک است: ip, link, wg, qr, save.
@@ -142,16 +142,18 @@ def server_card(server, state, label, actions):
     aliases = server.get('aliases') or []
     name = server['name'] + (f" (+{len(aliases)})" if aliases else '')
     marker = core.PROVIDER_MARKERS.get(server.get('provider', core.PROVIDER_PROTON), '')
-    address = server.get('ip') or server.get('hostname', '')
+    parts = [address]
+    host = server.get('hostname', '')
+    if host and host != address:
+        parts.append(host)
     if state == core.STATE_ALIVE:
         status = pill(ltr(f"{server['ping']} ms"), ping_color(server['ping']))
-        detail = f"{address}  •  {server.get('proto', '')}"
+        parts.append(server.get('proto', ''))
     elif state == core.STATE_NO_REPLY:
         status = pill(label('status_no_reply'), DANGER)
-        detail = address
     else:
         status = pill(label('status_untested'), TEXT_MUTED)
-        detail = address
+    detail = '  •  '.join(part for part in parts if part)
     return card(
         ft.Row(
             [
