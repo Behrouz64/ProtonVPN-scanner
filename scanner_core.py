@@ -479,6 +479,41 @@ def top_results(servers, limit=TOP_N):
     return sorted(servers, key=lambda s: s['ping'])[:limit]
 
 
+BROWSE_PAGE = 40
+STATE_ALIVE = 'alive'
+STATE_NO_REPLY = 'no_reply'
+STATE_UNTESTED = 'untested'
+
+
+def endpoint_id(server):
+    """شناسه‌ی ثابت یک سرور برای تشخیص تست‌شده بودن.
+
+    IP سرورهای Surfshark قبل از اسکن خالی است، پس نام میزبان (یا IP برای Proton) مبنا قرار می‌گیرد.
+    """
+    return (server.get('provider', PROVIDER_PROTON), server.get('hostname') or server.get('ip', ''),
+            server.get('wg_key', ''))
+
+
+def browse_order(scope, alive, tested_ids):
+    """[(وضعیت، سرور)] به ترتیب: پاسخ‌دهنده‌ها بر اساس پینگ، سپس تست‌شده‌های بی‌پاسخ، سپس تست‌نشده‌ها.
+
+    ترتیب فهرست در هر گروه حفظ می‌شود.
+    """
+    alive_by_id = {endpoint_id(s): s for s in alive}
+    rows = []
+    for server in scope:
+        ident = endpoint_id(server)
+        if ident in alive_by_id:
+            hit = alive_by_id[ident]
+            rows.append((0, hit['ping'], STATE_ALIVE, hit))
+        elif ident in tested_ids:
+            rows.append((1, 0, STATE_NO_REPLY, server))
+        else:
+            rows.append((2, 0, STATE_UNTESTED, server))
+    rows.sort(key=lambda row: (row[0], row[1]))
+    return [(state, server) for _, _, state, server in rows]
+
+
 # ---------- WireGuard ----------
 def is_valid_wg_key(key):
     return bool(key) and _WG_KEY_RE.fullmatch(key) is not None

@@ -69,8 +69,10 @@ class ScannerApp:
         self.surfshark_text = ''
         self.raw_data = None
         self.loaded_once = False
-        self.index = None
+        self.index = core.build_region_index([])
         self.all_filtered = []
+        self.tested_ids = set()
+        self.browse_limit = core.BROWSE_PAGE
         self.continent = core.ALL_CONTINENTS
         self.country = core.ALL_COUNTRIES
         self.scan_selection = (core.ALL_CONTINENTS, core.ALL_COUNTRIES)
@@ -223,34 +225,7 @@ class ScannerApp:
         t = self.t
         self.btn_load = ui.primary_button(t('btn_load'), self.on_load, icon=ft.Icons.CLOUD_DOWNLOAD)
         self.db_text = ui.body_text('', color=ui.TEXT_MUTED, size=12)
-        self.mode_seg = ft.SegmentedButton(
-            segments=[
-                ft.Segment(value='free', label=ft.Text(t('mode_free'))),
-                ft.Segment(value='paid', label=ft.Text(t('mode_paid'))),
-                ft.Segment(value='all', label=ft.Text(t('mode_all'))),
-            ],
-            selected=[self.mode],
-            on_change=self.on_mode,
-        )
-        self.provider_seg = ft.SegmentedButton(
-            segments=[
-                ft.Segment(value=core.PROVIDER_PROTON, label=ft.Text(t('provider_proton'))),
-                ft.Segment(value=core.PROVIDER_SURFSHARK, label=ft.Text(t('provider_surfshark'))),
-                ft.Segment(value=PROVIDER_ALL, label=ft.Text(t('provider_all'))),
-            ],
-            selected=[self.provider],
-            on_change=self.on_provider,
-        )
-        self.continent_dd = ft.Dropdown(
-            value=self.continent, options=self.continent_options(), on_select=self.on_continent,
-            expand=True, border_color=ui.BORDER, focused_border_color=ui.PRIMARY, bgcolor=ui.SURFACE,
-            color=ui.TEXT,
-        )
-        self.country_dd = ft.Dropdown(
-            value=self.country, options=self.country_options(), on_select=self.on_country,
-            expand=True, border_color=ui.BORDER, focused_border_color=ui.PRIMARY, bgcolor=ui.SURFACE,
-            color=ui.TEXT,
-        )
+        self.scan_scope = ui.body_text('', color=ui.TEXT_MUTED, size=13)
         self.btn_scan = ui.primary_button(t('btn_scan'), self.on_scan, icon=ft.Icons.RADAR)
         self.btn_next = ui.secondary_button(t('btn_next'), self.on_next, icon=ft.Icons.SKIP_NEXT)
         self.btn_reset = ui.secondary_button(t('btn_reset'), self.on_reset_scan, icon=ft.Icons.RESTART_ALT,
@@ -275,16 +250,13 @@ class ScannerApp:
                 ui.card(ui.heading(t('step_database')),
                         ft.Row([self.btn_load], spacing=8),
                         self.db_text),
-                ui.card(ui.heading(t('filter_title')),
-                        self.provider_seg,
-                        self.mode_seg,
-                        ft.Row([self.continent_dd, self.country_dd], spacing=8)),
                 ui.card(ui.heading(t('step_scan')),
                         ft.Container(
                             content=ui.body_text(t('vpn_warning'), color=ui.WARNING, size=13),
                             bgcolor=ui.blend(ui.WARNING, ui.SURFACE, 0.14),
                             border_radius=12, padding=12,
                         ),
+                        self.scan_scope,
                         ft.Row([self.btn_scan], spacing=8),
                         ft.Row([self.btn_next, self.btn_reset], spacing=8),
                         self.progress_bar,
@@ -294,18 +266,50 @@ class ScannerApp:
         )
 
     def build_servers_tab(self):
+        """تب سرورها: محدوده، فهرست سرورها با وضعیت تست، خروجی گروهی و کلیدها؛ همه بدون نیاز به اسکن."""
         t = self.t
+        self.provider_seg = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value=core.PROVIDER_PROTON, label=ft.Text(t('provider_proton'))),
+                ft.Segment(value=core.PROVIDER_SURFSHARK, label=ft.Text(t('provider_surfshark'))),
+                ft.Segment(value=PROVIDER_ALL, label=ft.Text(t('provider_all'))),
+            ],
+            selected=[self.provider],
+            on_change=self.on_provider,
+        )
+        self.mode_seg = ft.SegmentedButton(
+            segments=[
+                ft.Segment(value='free', label=ft.Text(t('mode_free'))),
+                ft.Segment(value='paid', label=ft.Text(t('mode_paid'))),
+                ft.Segment(value='all', label=ft.Text(t('mode_all'))),
+            ],
+            selected=[self.mode],
+            on_change=self.on_mode,
+        )
+        self.continent_dd = ft.Dropdown(
+            value=self.continent, options=self.continent_options(), on_select=self.on_continent,
+            expand=True, border_color=ui.BORDER, focused_border_color=ui.PRIMARY, bgcolor=ui.SURFACE,
+            color=ui.TEXT,
+        )
+        self.country_dd = ft.Dropdown(
+            value=self.country, options=self.country_options(), on_select=self.on_country,
+            expand=True, border_color=ui.BORDER, focused_border_color=ui.PRIMARY, bgcolor=ui.SURFACE,
+            color=ui.TEXT,
+        )
+        self.browse_header = ui.body_text('', color=ui.TEXT, size=13, weight=ft.FontWeight.BOLD)
+        self.browse_list = ft.Column(spacing=10)
+        self.btn_more = ui.secondary_button(t('browse_more'), self.on_browse_more, icon=ft.Icons.EXPAND_MORE)
+        self.btn_export = ui.secondary_button(t('btn_export'), self.on_export, icon=ft.Icons.DOWNLOAD)
+        self.btn_export_untested = ui.secondary_button(
+            t('btn_export_untested', n=self.settings['untested_export_count']), self.on_export_untested,
+            icon=ft.Icons.DOWNLOAD)
+        self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
         self.key_field = ft.TextField(
             label=t('key_label'), value=self.private_key, password=True, can_reveal_password=True,
             on_change=self.on_key_change, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
             bgcolor=ui.SURFACE, color=ui.TEXT, text_size=13,
         )
-        self.btn_export = ui.secondary_button(t('btn_export'), self.on_export, icon=ft.Icons.DOWNLOAD)
-        self.btn_export_untested = ui.secondary_button(t('btn_export_untested', n=self.settings['untested_export_count']), self.on_export_untested,
-                                                       icon=ft.Icons.DOWNLOAD)
-        self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
-        self.results_header = ft.Text('', size=13, weight=ft.FontWeight.BOLD, color=ui.TEXT_MUTED)
-        self.results_list = ft.Column(spacing=10)
+        self.proton_key_status = ui.body_text('', color=ui.TEXT_MUTED, size=12)
         self.surfshark_field = ft.TextField(
             label=t('surfshark_label'), value=self.surfshark_text, password=True, can_reveal_password=True,
             on_change=self.on_surfshark_change, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
@@ -317,24 +321,39 @@ class ScannerApp:
         return ft.Column(
             [
                 ui.card(
-                    self.key_field,
-                    ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
+                    ui.heading(t('filter_title')),
+                    self.provider_seg,
+                    self.mode_seg,
+                    ft.Row([self.continent_dd, self.country_dd], spacing=8),
+                ),
+                ui.card(
+                    ui.heading(t('browse_title')),
+                    self.browse_header,
+                    self.browse_list,
+                    ft.Row([self.btn_more], spacing=8),
+                ),
+                ui.card(
+                    ui.heading(t('export_title')),
+                    ft.Row([self.btn_links], spacing=8),
                     ft.Row([self.btn_export], spacing=8),
                     ft.Row([self.btn_export_untested], spacing=8),
                     ui.body_text(t('export_untested_hint'), color=ui.TEXT_MUTED, size=12),
-                    ft.Row([self.btn_links], spacing=8),
+                ),
+                ui.card(
+                    ui.heading(t('proton_key_title')),
+                    self.key_field,
+                    self.proton_key_status,
+                    ui.body_text(t('key_hint'), color=ui.TEXT_MUTED, size=12),
                 ),
                 ui.card(
                     ui.heading(t('surfshark_title')),
                     self.surfshark_field,
-                    ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
                     self.surfshark_status,
+                    ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
                     ft.Row([self.btn_fetch_ips], spacing=8),
                     ui.body_text(t('fetch_ips_hint'), color=ui.TEXT_MUTED, size=12),
                     self.ip_status,
                 ),
-                self.results_header,
-                self.results_list,
             ],
             spacing=12,
         )
@@ -457,18 +476,17 @@ class ScannerApp:
     def sync(self):
         """همه‌ی کنترل‌ها را طبق وضعیت برنامه تنظیم می‌کند و صفحه را به‌روز می‌کند."""
         busy = self.busy
-        loaded = self.index is not None
+        scope = self.scope_servers()
         has_results = bool(self.last_valid)
         self.btn_load.content = self.t('btn_reload' if self.loaded_once else 'btn_load')
         self.btn_load.disabled = busy
         self.db_text.value = self.db_summary()
-        self.provider_seg.disabled = busy
-        self.mode_seg.disabled = busy or not loaded
-        self.continent_dd.disabled = busy or not loaded
-        self.country_dd.disabled = busy or not loaded
-        self.btn_scan.disabled = busy or not loaded
+        for control in (self.provider_seg, self.mode_seg, self.continent_dd, self.country_dd):
+            control.disabled = busy
+        self.btn_scan.disabled = busy or not scope
         self.btn_next.disabled = busy or self.remaining <= 0
         self.btn_reset.disabled = busy or not (has_results or self.remaining or self.offset)
+        self.scan_scope.value = self.t('scan_scope', count=len(scope))
         self.result_banner.visible = has_results
         if has_results:
             self.result_text.value = self.t('results_ready', alive=len(self.last_valid),
@@ -486,18 +504,17 @@ class ScannerApp:
         self.key_field.disabled = busy
         self.surfshark_field.disabled = busy
         self.btn_export.disabled = busy or not has_results
-        self.btn_export_untested.disabled = busy or not self.all_filtered
-        self.btn_links.disabled = busy or not has_results
-        self.results_list.controls = self.result_controls()
-        if has_results:
-            shown = min(len(self.last_valid), core.TOP_N)
-            self.results_header.value = self.t('results_header', shown=shown, total=len(self.last_valid))
-        else:
-            self.results_header.value = ''
+        self.btn_export_untested.disabled = busy or not scope
+        self.btn_links.disabled = busy or not scope
+        rows = core.browse_order(scope, self.last_valid, self.tested_ids)
+        shown = rows[:self.browse_limit]
+        self.browse_list.controls = self.browse_items(shown)
+        self.browse_header.value = self.t('browse_count', shown=len(shown), total=len(rows))
+        self.btn_more.visible = len(rows) > self.browse_limit
         self.page.update()
 
     def db_summary(self):
-        if self.index is None:
+        if self.raw_data is None:
             return self.t('db_none')
         mode_key = {'free': 'mode_free', 'paid': 'mode_paid', 'all': 'mode_all'}[self.mode]
         return self.t('db_summary', count=len(self.all_filtered), mode=self.t(mode_key))
@@ -554,13 +571,13 @@ class ScannerApp:
 
     def update_menus(self):
         self.all_filtered = core.dedupe_endpoints(core.filter_by_tier(self.provider_servers(), self.mode))
-        loaded = self.raw_data is not None or self.provider != core.PROVIDER_PROTON
-        self.index = core.build_region_index(self.all_filtered) if loaded else None
+        self.index = core.build_region_index(self.all_filtered)
         self.continent = core.ALL_CONTINENTS
         self.country = core.ALL_COUNTRIES
         self.continent_dd.value = self.continent
         self.country_dd.value = self.country
         self.refresh_region_options()
+        self.browse_limit = core.BROWSE_PAGE
         self.reset_scan_session()
 
     def reset_scan_position(self):
@@ -572,6 +589,7 @@ class ScannerApp:
         """نتیجه‌ها و موقعیت اسکن را پاک می‌کند؛ برای وقتی که فهرست سرورها عوض می‌شود."""
         self.reset_scan_position()
         self.last_valid = []
+        self.tested_ids = set()
         self.progress = (0, 1)
         self.status = ('ok', 'scan_reset_done', {})
 
@@ -608,15 +626,31 @@ class ScannerApp:
         self.country_dd.value = self.country
         self.country_dd.options = self.country_options()
         self.reset_scan_position()
+        self.browse_limit = core.BROWSE_PAGE
         self.sync()
 
     async def on_country(self, e):
         self.country = e.control.value
         self.reset_scan_position()
+        self.browse_limit = core.BROWSE_PAGE
+        self.sync()
+
+    async def on_browse_more(self, e=None):
+        self.browse_limit += core.BROWSE_PAGE
         self.sync()
 
     async def on_key_change(self, e):
         self.private_key = e.control.value or ''
+        self.proton_key_status.value, self.proton_key_status.color = self.key_status(self.private_key)
+        self.page.update()
+
+    def key_status(self, value):
+        """متن و رنگ وضعیت کلید ProtonVPN؛ کادر خالی یعنی هنوز چیزی وارد نشده."""
+        if not value.strip():
+            return '', ui.TEXT_MUTED
+        if core.is_valid_wg_key(value.strip()):
+            return self.t('proton_key_ready'), ui.SUCCESS
+        return self.t('err_key_invalid'), ui.DANGER
 
     async def on_surfshark_change(self, e):
         self.surfshark_text = e.control.value or ''
@@ -675,6 +709,7 @@ class ScannerApp:
         self.scan_selection = (self.continent, core.cc_from_label(self.country))
         self.offset = 0
         self.last_valid = []
+        self.tested_ids = set()
         await self.run_batch()
 
     async def on_next(self, e=None):
@@ -685,6 +720,7 @@ class ScannerApp:
         self.offset = 0
         self.remaining = 0
         self.last_valid = []
+        self.tested_ids = set()
         self.progress = (0, 1)
         self.set_status('ok', 'scan_reset_done')
 
@@ -697,7 +733,8 @@ class ScannerApp:
         active_map = self.index.active_map if self.index else {}
         servers = core.filter_servers(self.all_filtered, continent, cc, active_map)
         if not servers:
-            self.set_status('warn', 'scan_none_in_scope')
+            needs_db = self.raw_data is None and self.provider != core.PROVIDER_SURFSHARK
+            self.set_status('warn', 'load_first' if needs_db else 'scan_none_in_scope')
             return
         batch = servers[self.offset:self.offset + core.BATCH_SIZE]
         if not batch:
@@ -728,6 +765,7 @@ class ScannerApp:
                 self.progress = (done, total)
                 self.sync()
             # scan_server فقط پاسخ‌هایی را برمی‌گرداند که از آستانه‌ی پاسخ فیک بالاتر باشند
+            self.tested_ids.add(core.endpoint_id(server))
             if found is not None:
                 alive.append(found)
 
@@ -749,18 +787,33 @@ class ScannerApp:
         else:
             self.set_status('error', 'scan_all_dead', total=total, ms=threshold)
 
-    def result_controls(self):
-        if not self.last_valid:
-            return [ui.body_text(self.t('results_empty'), color=ui.TEXT_MUTED, size=13)]
-        actions_for = lambda srv: {  # noqa: E731 - کوتاه و فقط برای ساخت کارت‌ها
-            'ip': self.handler(self.copy_ip, srv),
-            'link': self.handler(self.copy_link, srv),
-            'wg': self.handler(self.copy_wg, srv),
-            'qr': self.handler(self.show_qr, srv),
-            'save': self.handler(self.save_wg, srv),
-        }
-        top = core.top_results(self.last_valid, core.TOP_N)
-        return [ui.result_card(srv, self.t, actions_for(srv)) for srv in top]
+    def scope_servers(self):
+        """سرورهای محدوده‌ی انتخاب‌شده؛ فهرست نمایش و اسکن از همین تابع استفاده می‌کنند."""
+        cc = core.cc_from_label(self.country)
+        return core.filter_servers(self.all_filtered, self.continent, cc, self.index.active_map)
+
+    def browse_servers(self, limit):
+        """سرورهای محدوده به ترتیب نمایش؛ برای خروجی و کپی گروهی."""
+        rows = core.browse_order(self.scope_servers(), self.last_valid, self.tested_ids)
+        return [server for _, server in rows][:limit]
+
+    def browse_items(self, rows):
+        """کارت‌های فهرست. اگر فهرست Proton هنوز بارگذاری نشده، دلیل خالی بودن آن را می‌گوید."""
+        items = []
+        if self.raw_data is None and self.provider != core.PROVIDER_SURFSHARK:
+            items.append(ui.body_text(self.t('browse_need_db'), color=ui.WARNING, size=13))
+        if not rows and not items:
+            items.append(ui.body_text(self.t('browse_empty'), color=ui.TEXT_MUTED, size=13))
+        for state, server in rows:
+            actions = {
+                'ip': self.handler(self.copy_ip, server),
+                'link': self.handler(self.copy_link, server),
+                'wg': self.handler(self.copy_wg, server),
+                'qr': self.handler(self.show_qr, server),
+                'save': self.handler(self.save_wg, server),
+            }
+            items.append(ui.server_card(server, state, self.t, actions))
+        return items
 
     def handler(self, action, server):
         async def on_click(e):
@@ -809,24 +862,33 @@ class ScannerApp:
         await self.clipboard.set(text)
         self.toast('ok', key, **values)
 
+    async def ready_server(self, server):
+        """سروری که کانفیگ از آن ساخته می‌شود: Surfshark بدون IP پیش از اسکن، IP را از کش یا DNS می‌گیرد."""
+        ready, _ = await asyncio.to_thread(core.config_ready, [server], self.surfshark_ip_source())
+        return ready[0]
+
     async def copy_ip(self, server):
-        await self.copy_text(server['ip'], 'copied')
+        ready = await self.ready_server(server)
+        await self.copy_text(ready['ip'], 'copied')
 
     async def copy_link(self, server):
         ident = self.identity_for(server, required=True)
-        link = core.build_wg_link(server, ident.private_key, obfuscation=self.obfuscation(),
+        ready = await self.ready_server(server)
+        link = core.build_wg_link(ready, ident.private_key, obfuscation=self.obfuscation(),
                                   address=ident.address, dns=ident.dns)
         await self.copy_text(link, 'link_copied', name=server['name'])
 
     async def copy_wg(self, server):
-        ident = self.identity_for(server, required=False)
-        conf = core.build_wireguard_config(server, ident.private_key, address=ident.address, dns=ident.dns,
+        ident = self.identity_for(server, required=True)
+        ready = await self.ready_server(server)
+        conf = core.build_wireguard_config(ready, ident.private_key, address=ident.address, dns=ident.dns,
                                            obfuscation=self.obfuscation())
         await self.copy_text(conf, 'config_copied')
 
     async def save_wg(self, server):
-        ident = self.identity_for(server, required=False)
-        path = await asyncio.to_thread(core.write_wireguard_config, server, self.export_dir, ident.private_key,
+        ident = self.identity_for(server, required=True)
+        ready = await self.ready_server(server)
+        path = await asyncio.to_thread(core.write_wireguard_config, ready, self.export_dir, ident.private_key,
                                        self.obfuscation(), ident.address, ident.dns)
         self.toast('ok', 'saved_to', path=path)
 
@@ -834,12 +896,13 @@ class ScannerApp:
         ident = self.identity_for(server, required=True)
         if not core.qr_available():
             raise UserError('err_qr_package')
+        ready = await self.ready_server(server)
         obfuscation = self.obfuscation()
         # هر دو حالت همین‌جا ساخته می‌شوند تا خطای سرور قبل از باز شدن پنجره دیده شود
         payloads = {
-            'config': core.build_wireguard_config(server, ident.private_key, address=ident.address,
+            'config': core.build_wireguard_config(ready, ident.private_key, address=ident.address,
                                                   dns=ident.dns, obfuscation=obfuscation),
-            'link': core.build_wg_link(server, ident.private_key, obfuscation=obfuscation,
+            'link': core.build_wg_link(ready, ident.private_key, obfuscation=obfuscation,
                                        address=ident.address, dns=ident.dns),
         }
         qr_box = ft.Container(bgcolor=ft.Colors.WHITE, border_radius=8)
@@ -883,12 +946,13 @@ class ScannerApp:
         await self.guarded(self.do_copy_links)
 
     async def do_copy_links(self):
-        cc = core.cc_from_label(self.country)
-        active_map = self.index.active_map if self.index else {}
-        servers = core.filter_servers(self.last_valid, self.continent, cc, active_map)
+        servers = self.browse_servers(self.settings['untested_export_count'])
+        if not servers:
+            raise UserError('no_scope_servers')
+        ready, _ = await asyncio.to_thread(core.config_ready, servers, self.surfshark_ip_source())
         obfuscation = self.obfuscation()
         links, skipped = [], 0
-        for server in servers:
+        for server in ready:
             ident = self.identity_for(server, required=True)
             try:
                 links.append(core.build_wg_link(server, ident.private_key, obfuscation=obfuscation,
@@ -897,6 +961,7 @@ class ScannerApp:
                 skipped += 1
         if not links:
             raise UserError('no_scope_servers')
+        cc = core.cc_from_label(self.country)
         if cc != core.ALL_COUNTRIES:
             scope = self.country
         elif self.continent != core.ALL_CONTINENTS:
@@ -963,10 +1028,8 @@ class ScannerApp:
         await self.guarded(self.do_export_untested)
 
     async def do_export_untested(self):
-        """کانفیگ‌های فیلتر فعلی را بدون هیچ تستی خروجی می‌گیرد (همان ترتیب فهرست، حداکثر ۱۵ سرور)."""
-        cc = core.cc_from_label(self.country)
-        active_map = self.index.active_map if self.index else {}
-        servers = core.filter_servers(self.all_filtered, self.continent, cc, active_map)[:self.settings['untested_export_count']]
+        """کانفیگ‌های محدوده را بدون تست تازه خروجی می‌گیرد؛ به ترتیب نمایش و به تعداد تنظیم‌شده."""
+        servers = self.browse_servers(self.settings['untested_export_count'])
         if not servers:
             raise UserError('export_nothing')
         await self.export_servers(servers)

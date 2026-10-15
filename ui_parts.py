@@ -134,34 +134,47 @@ def flag(cc, size=20):
     return ft.Icon(ft.Icons.PUBLIC, size=size, color=TEXT_MUTED)
 
 
-def result_card(server, label, actions):
-    """کارت یک سرور. actions نگاشت نام عمل به تابع کلیک است: ip, link, wg, qr, save."""
+def server_card(server, state, label, actions):
+    """کارت یک سرور: وضعیت تست (پینگ، بی‌پاسخ یا تست‌نشده) و دکمه‌های کپی و QR.
+
+    actions نگاشت نام عمل به تابع کلیک است: ip, link, wg, qr, save.
+    """
     aliases = server.get('aliases') or []
     name = server['name'] + (f" (+{len(aliases)})" if aliases else '')
     marker = core.PROVIDER_MARKERS.get(server.get('provider', core.PROVIDER_PROTON), '')
+    address = server.get('ip') or server.get('hostname', '')
+    if state == core.STATE_ALIVE:
+        status = pill(ltr(f"{server['ping']} ms"), ping_color(server['ping']))
+        detail = f"{address}  •  {server.get('proto', '')}"
+    elif state == core.STATE_NO_REPLY:
+        status = pill(label('status_no_reply'), DANGER)
+        detail = address
+    else:
+        status = pill(label('status_untested'), TEXT_MUTED)
+        detail = address
     return card(
         ft.Row(
             [
                 flag(server.get('cc')),
                 ft.Text(f"{marker} {name}".strip(), size=16, weight=ft.FontWeight.BOLD, color=TEXT, expand=True),
-                pill(ltr(f"{server['ping']} ms"), ping_color(server['ping'])),
+                status,
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             spacing=10,
         ),
-        ft.Text(ltr(f"{server['ip']}  •  {server['proto']}"), size=12, color=TEXT_MUTED),
+        ft.Text(ltr(detail), size=12, color=TEXT_MUTED),
         ft.Row(
             [
-                secondary_button(label('card_copy_ip'), actions['ip'], icon=ft.Icons.CONTENT_COPY, size=12),
-                secondary_button(label('card_copy_link'), actions['link'], icon=ft.Icons.LINK, size=12),
+                secondary_button(label('card_copy_ip'), actions['ip'], icon=ft.Icons.CONTENT_COPY, size=12, expand=False),
+                secondary_button(label('card_copy_link'), actions['link'], icon=ft.Icons.LINK, size=12, expand=False),
             ],
             spacing=8,
         ),
         ft.Row(
             [
-                secondary_button(label('card_copy_wg'), actions['wg'], icon=ft.Icons.DATA_OBJECT, size=12),
-                secondary_button(label('card_qr'), actions['qr'], icon=ft.Icons.QR_CODE_2, size=12),
-                secondary_button(label('card_save'), actions['save'], icon=ft.Icons.SAVE_ALT, size=12),
+                secondary_button(label('card_copy_wg'), actions['wg'], icon=ft.Icons.DATA_OBJECT, size=12, expand=False),
+                secondary_button(label('card_qr'), actions['qr'], icon=ft.Icons.QR_CODE_2, size=12, expand=False),
+                secondary_button(label('card_save'), actions['save'], icon=ft.Icons.SAVE_ALT, size=12, expand=False),
             ],
             spacing=8,
         ),
