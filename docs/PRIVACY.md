@@ -26,7 +26,7 @@
   - `https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
   - `https://gh-proxy.com/https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
 - **پینگ** به IP سرورهای Proton روی TCP 443 و UDP 80. در روش «بدون کلید» برای Surfshark هم، نام میزبان هر سرور از DNS سیستم شما به IP تبدیل می‌شود و همین پینگ فرستاده می‌شود؛ کلید فرستاده نمی‌شود.
-- **تست Surfshark با کلید (پیش‌فرض):** یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Surfshark. هیچ ورود به حساب Surfshark و هیچ خواندن API انجام نمی‌شود. فهرست سرورهای Surfshark از فایل همراه برنامه خوانده می‌شود و از اینترنت دانلود نمی‌شود.
+- **تست Surfshark با کلید (پیش‌فرض):** یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Surfshark. نام میزبان هر سرور از DNS سیستم شما به حداکثر دو IP تبدیل می‌شود. هیچ ورود به حساب Surfshark و هیچ خواندن API انجام نمی‌شود. فهرست سرورهای Surfshark از فایل همراه برنامه خوانده می‌شود و از اینترنت دانلود نمی‌شود.
 - **باز کردن لینک‌ها** (راهنما، کانال Telegram، صفحه‌ی X) فقط با مرورگر شما انجام می‌شود.
 
 ## آنچه جمع‌آوری یا ارسال نمی‌شود

@@ -674,18 +674,18 @@ class ScannerApp:
             nonlocal done
             async with gate:
                 if keyless:
-                    ping, proto = await asyncio.to_thread(core.probe_server, server, '',
-                                                          core.SCAN_WITHOUT_KEY)
+                    found = await asyncio.to_thread(core.scan_server, server, '',
+                                                    core.SCAN_WITHOUT_KEY, threshold)
                 else:
-                    ping, proto = await asyncio.to_thread(core.probe_server, server, self.probe_key(server),
-                                                          core.SCAN_WITH_KEY)
+                    found = await asyncio.to_thread(core.scan_server, server, self.probe_key(server),
+                                                    core.SCAN_WITH_KEY, threshold)
             done += 1
             if done % 10 == 0 or done == total:
                 self.progress = (done, total)
                 self.sync()
-            # پینگ‌های زیر حد مجاز جواب واقعی نیستند
-            if core.is_usable_reply(ping, threshold):
-                alive.append({**server, 'ping': ping, 'proto': proto})
+            # scan_server فقط پاسخ‌هایی را برمی‌گرداند که از آستانه‌ی پاسخ فیک بالاتر باشند
+            if found is not None:
+                alive.append(found)
 
         self.busy = True
         self.progress = (0, total)
@@ -893,8 +893,12 @@ class ScannerApp:
             group = [server for server in servers if server.get('provider', core.PROVIDER_PROTON) == provider]
             if not group:
                 continue
-            ident = self.identity_for(group[0], required=False)
-            done, failed = await asyncio.to_thread(core.export_wireguard_configs, group, self.export_dir,
+            ready, unresolved = await asyncio.to_thread(core.config_ready, group)
+            skipped += [server['name'] for server in unresolved]
+            if not ready:
+                continue
+            ident = self.identity_for(ready[0], required=False)
+            done, failed = await asyncio.to_thread(core.export_wireguard_configs, ready, self.export_dir,
                                                    ident.private_key, obfuscation, ident.address, ident.dns)
             written += done
             skipped += failed

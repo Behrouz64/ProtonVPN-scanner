@@ -254,7 +254,8 @@ def load_surfshark_catalog(path=SURFSHARK_CATALOG_FILE):
         city = item.get('city', '') or ''
         servers.append({
             'name': f"{code}-{city}" if city else code,
-            'ip': host,
+            'hostname': host,
+            'ip': '',
             'cc': code,
             'city': city,
             'free': False,
@@ -389,16 +390,64 @@ def probe_server(server, private_key='', mode=SCAN_WITH_KEY):
     با کلید: Surfshark با Handshake واقعی WireGuard سنجیده می‌شود (نیاز به کلید دارد).
     بدون کلید: فقط پینگ TCP/UDP، و برای Surfshark روی نشانی IPv4 حل‌شده. Proton همیشه پینگ است.
     """
-    if server.get('provider') == PROVIDER_SURFSHARK:
-        if mode == SCAN_WITHOUT_KEY:
-            try:
-                ip = socket.getaddrinfo(server['ip'], None, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-            except (OSError, IndexError):
-                return None, None
-            return smart_ping(ip)
+    if server.get('provider') == PROVIDER_SURFSHARK and mode != SCAN_WITHOUT_KEY:
         return surfshark_core.handshake_rtt(server['ip'], server['wg_key'], private_key,
                                             port=server.get('port', WG_PORT))
     return smart_ping(server['ip'])
+
+
+SURFSHARK_IPS_PER_HOST = 2
+
+
+def resolve_ipv4(host, limit=SURFSHARK_IPS_PER_HOST):
+    """حداکثر limit نشانی IPv4 یکتای نام میزبان (مثل dig A). خطای DNS یعنی فهرست خالی."""
+    try:
+        infos = socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM)
+    except OSError:
+        return []
+    ips = []
+    for info in infos:
+        ip = info[4][0]
+        if ip not in ips:
+            ips.append(ip)
+    return ips[:limit]
+
+
+def scan_server(server, private_key='', mode=SCAN_WITH_KEY, threshold=MIN_PLAUSIBLE_PING_MS):
+    """بهترین سرور پاسخ‌دهنده یا None.
+
+    Surfshark فقط نام میزبان دارد: نشانی‌های IPv4 آن حل می‌شود و هر IP جداگانه سنجیده می‌شود.
+    Proton همان IP خودش را دارد. خروجی همان سرور با IP پاسخ‌دهنده، ping و proto است.
+    """
+    if server.get('provider') == PROVIDER_SURFSHARK:
+        ips = resolve_ipv4(server['hostname'])
+    else:
+        ips = [server['ip']]
+    best = None
+    for ip in ips:
+        candidate = {**server, 'ip': ip}
+        ping, proto = probe_server(candidate, private_key, mode)
+        if is_usable_reply(ping, threshold) and (best is None or ping < best[0]):
+            best = (ping, proto, candidate)
+    if best is None:
+        return None
+    ping, proto, candidate = best
+    return {**candidate, 'ping': ping, 'proto': proto}
+
+
+def config_ready(servers):
+    """(سرورهای دارای IPv4 برای Endpoint، سرورهایی که نامشان حل نشد). Surfshark پیش از کانفیگ IP می‌گیرد."""
+    ready, unresolved = [], []
+    for server in servers:
+        if server.get('provider') != PROVIDER_SURFSHARK or _is_ipv4(server.get('ip', '')):
+            ready.append(server)
+            continue
+        ips = resolve_ipv4(server['hostname'], limit=1)
+        if ips:
+            ready.append({**server, 'ip': ips[0]})
+        else:
+            unresolved.append(server)
+    return ready, unresolved
 
 
 def is_usable_reply(ping, threshold):
@@ -517,10 +566,7 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
 
 def _check_server_host(server):
     """IPv4 برای Proton و نام میزبان برای Surfshark (در Endpoint همان مقدار استفاده می‌شود)."""
-    if server.get('provider') == PROVIDER_SURFSHARK:
-        valid = _is_hostname(server['ip'])
-    else:
-        valid = _is_ipv4(server['ip'])
+    valid = _is_ipv4(server['ip'])
     if not valid:
         raise ConfigError('bad_ip', f"{server['name']}: server address is invalid")
 
