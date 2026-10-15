@@ -13,16 +13,23 @@ CACHE_FILE = 'surfshark_ips.json'
 CACHE_VERSION = 1
 
 
+def is_public_ipv4(value):
+    """IPv4 عمومی است. نشانی‌های خصوصی، لوپ‌بک و بازه‌های ساختگی (مثل پاسخ sinkhole فیلترینگ) رد می‌شوند."""
+    if not isinstance(value, str):
+        return False
+    try:
+        return ipaddress.IPv4Address(value).is_global
+    except ValueError:
+        return False
+
+
 def _valid_ips(values):
-    """فقط IPv4 معتبر، بدون تکرار و با حفظ ترتیب."""
+    """فقط IPv4 عمومی، بدون تکرار و با حفظ ترتیب."""
     ips = []
     for value in values:
-        if not isinstance(value, str):
+        if not is_public_ipv4(value):
             continue
-        try:
-            ip = str(ipaddress.IPv4Address(value))
-        except ValueError:
-            continue
+        ip = str(ipaddress.IPv4Address(value))
         if ip not in ips:
             ips.append(ip)
     return ips
@@ -98,9 +105,9 @@ def merge_cache(old, fresh):
 
 def ip_source(cache, bundled, resolver, now, limit):
     """تابع host -> فهرست IP برای اسکن و کانفیگ: کش تازه، سپس فهرست همراه، سپس DNS زنده."""
+    # کش یا فهرست همراه و DNS زنده، هر دو نامزدند؛ کش آلوده نباید پاسخ سالم DNS را پنهان کند
     def ips_for(host):
-        ips = fresh_ips(cache, host, now) or _valid_ips(bundled.get(host, []))
-        if not ips:
-            ips = _valid_ips(resolver(host, limit))
-        return ips[:limit]
+        stored = (fresh_ips(cache, host, now) or _valid_ips(bundled.get(host, [])))[:limit]
+        live = _valid_ips(resolver(host, limit))[:limit]
+        return list(dict.fromkeys(stored + live))
     return ips_for

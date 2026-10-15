@@ -954,13 +954,14 @@ class ScannerApp:
     async def export_servers(self, servers):
         obfuscation = self.obfuscation()
         ips_for = self.surfshark_ip_source()
+        hostname_used = []
         written, skipped = [], []
         for provider in (core.PROVIDER_PROTON, core.PROVIDER_SURFSHARK):
             group = [server for server in servers if server.get('provider', core.PROVIDER_PROTON) == provider]
             if not group:
                 continue
-            ready, unresolved = await asyncio.to_thread(core.config_ready, group, ips_for)
-            skipped += [server['name'] for server in unresolved]
+            ready, by_name = await asyncio.to_thread(core.config_ready, group, ips_for)
+            hostname_used += by_name
             if not ready:
                 continue
             ident = self.identity_for(ready[0], required=False)
@@ -972,6 +973,9 @@ class ScannerApp:
         if skipped:
             self.toast('warn', 'exported_partial', count=len(written), kind=kind, path=self.export_dir,
                        skipped=len(skipped))
+        elif hostname_used:
+            self.toast('warn', 'exported_hostname', count=len(written), kind=kind, path=self.export_dir,
+                       hosts=len(hostname_used))
         else:
             self.toast('ok', 'exported', count=len(written), kind=kind, path=self.export_dir)
 

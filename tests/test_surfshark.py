@@ -86,7 +86,7 @@ class SurfsharkKeyTests(unittest.TestCase):
 
 class SurfsharkConfigTests(unittest.TestCase):
     def setUp(self):
-        self.server = {**core.load_surfshark_catalog(CATALOG)[0], 'ip': '203.0.113.5'}
+        self.server = {**core.load_surfshark_catalog(CATALOG)[0], 'ip': '91.108.56.5'}
         self.identity = core.WgIdentity(private_key=TEST_PRIVATE, address='10.14.0.2/16', dns='162.252.172.57')
 
     def test_config_uses_host_port_and_account_address(self):
@@ -118,17 +118,17 @@ class SurfsharkConfigTests(unittest.TestCase):
 
 class ProbeDispatchTests(unittest.TestCase):
     def test_surfshark_uses_handshake_probe(self):
-        server = {**core.load_surfshark_catalog(CATALOG)[0], 'ip': '203.0.113.5'}
+        server = {**core.load_surfshark_catalog(CATALOG)[0], 'ip': '91.108.56.5'}
         with mock.patch.object(surfshark_core, 'handshake_rtt', return_value=(42, 'UDP:51820')) as probe:
             result = core.probe_server(server, TEST_PRIVATE)
         self.assertEqual(result, (42, 'UDP:51820'))
-        probe.assert_called_once_with('203.0.113.5', server['wg_key'], TEST_PRIVATE, port=server['port'])
+        probe.assert_called_once_with('91.108.56.5', server['wg_key'], TEST_PRIVATE, port=server['port'])
 
     def test_proton_keeps_the_ping(self):
-        server = {'name': 'US#1', 'ip': '203.0.113.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
+        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
         with mock.patch.object(core, 'smart_ping', return_value=(120, 'TCP:443')) as ping:
             self.assertEqual(core.probe_server(server, TEST_PRIVATE), (120, 'TCP:443'))
-        ping.assert_called_once_with('203.0.113.7')
+        ping.assert_called_once_with('91.108.56.7')
 
 
 class ScanModeTests(unittest.TestCase):
@@ -136,39 +136,39 @@ class ScanModeTests(unittest.TestCase):
         self.server = core.load_surfshark_catalog(CATALOG)[0]
 
     def test_keyless_probe_pings_the_ip_without_dns(self):
-        server = {**self.server, 'ip': '203.0.113.9'}
+        server = {**self.server, 'ip': '91.108.56.9'}
         with mock.patch.object(core.socket, 'getaddrinfo') as dns, \
                 mock.patch.object(core, 'smart_ping', return_value=(77, 'TCP:443')) as ping, \
                 mock.patch.object(surfshark_core, 'handshake_rtt') as handshake:
             result = core.probe_server(server, '', core.SCAN_WITHOUT_KEY)
         self.assertEqual(result, (77, 'TCP:443'))
-        ping.assert_called_once_with('203.0.113.9')
+        ping.assert_called_once_with('91.108.56.9')
         dns.assert_not_called()
         handshake.assert_not_called()
 
     def test_resolve_ipv4_keeps_unique_addresses_up_to_limit(self):
         answers = [(None, None, None, None, (ip, 0)) for ip in
-                   ('198.51.100.1', '198.51.100.1', '198.51.100.2', '198.51.100.3')]
+                   ('45.83.64.1', '45.83.64.1', '45.83.64.2', '45.83.64.3')]
         with mock.patch.object(core.socket, 'getaddrinfo', return_value=answers):
-            self.assertEqual(core.resolve_ipv4('host.example', limit=2), ['198.51.100.1', '198.51.100.2'])
-            self.assertEqual(core.resolve_ipv4('host.example', limit=1), ['198.51.100.1'])
+            self.assertEqual(core.resolve_ipv4('host.example', limit=2), ['45.83.64.1', '45.83.64.2'])
+            self.assertEqual(core.resolve_ipv4('host.example', limit=1), ['45.83.64.1'])
 
     def test_resolve_ipv4_dns_error_gives_empty_list(self):
         with mock.patch.object(core.socket, 'getaddrinfo', side_effect=OSError('no dns')):
             self.assertEqual(core.resolve_ipv4('nowhere.invalid.example'), [])
 
     def test_scan_server_keeps_the_faster_usable_ip(self):
-        with mock.patch.object(core, 'resolve_ipv4', return_value=['198.51.100.1', '198.51.100.2']), \
+        with mock.patch.object(core, 'resolve_ipv4', return_value=['45.83.64.1', '45.83.64.2']), \
                 mock.patch.object(surfshark_core, 'handshake_rtt',
                                   side_effect=[(80, 'UDP:51820'), (35, 'UDP:51820')]) as handshake:
             found = core.scan_server(self.server, TEST_PRIVATE, core.SCAN_WITH_KEY, 10)
-        self.assertEqual(found['ip'], '198.51.100.2')
+        self.assertEqual(found['ip'], '45.83.64.2')
         self.assertEqual(found['hostname'], self.server['hostname'])
         self.assertEqual((found['ping'], found['proto']), (35, 'UDP:51820'))
-        self.assertEqual([call.args[0] for call in handshake.call_args_list], ['198.51.100.1', '198.51.100.2'])
+        self.assertEqual([call.args[0] for call in handshake.call_args_list], ['45.83.64.1', '45.83.64.2'])
 
     def test_scan_server_drops_replies_below_threshold(self):
-        with mock.patch.object(core, 'resolve_ipv4', return_value=['198.51.100.1']), \
+        with mock.patch.object(core, 'resolve_ipv4', return_value=['45.83.64.1']), \
                 mock.patch.object(core, 'smart_ping', return_value=(4, 'TCP:443')):
             self.assertIsNone(core.scan_server(self.server, '', core.SCAN_WITHOUT_KEY, 10))
 
@@ -177,33 +177,39 @@ class ScanModeTests(unittest.TestCase):
             self.assertIsNone(core.scan_server(self.server, '', core.SCAN_WITHOUT_KEY, 10))
 
     def test_proton_scan_uses_its_own_ip(self):
-        server = {'name': 'US#1', 'ip': '203.0.113.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
+        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
         with mock.patch.object(core.socket, 'getaddrinfo') as dns, \
                 mock.patch.object(core, 'smart_ping', return_value=(120, 'TCP:443')) as ping:
             found = core.scan_server(server, '', core.SCAN_WITHOUT_KEY, 10)
         dns.assert_not_called()
-        ping.assert_called_once_with('203.0.113.7')
-        self.assertEqual(found['ip'], '203.0.113.7')
+        ping.assert_called_once_with('91.108.56.7')
+        self.assertEqual(found['ip'], '91.108.56.7')
         self.assertEqual(found['ping'], 120)
 
     def test_config_ready_resolves_surfshark_hostnames(self):
-        proton = {'name': 'US#1', 'ip': '203.0.113.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
-        with mock.patch.object(core, 'resolve_ipv4', return_value=['198.51.100.2']):
+        proton = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
+        with mock.patch.object(core, 'resolve_ipv4', return_value=['45.83.64.2']):
             ready, unresolved = core.config_ready([self.server, proton])
         self.assertEqual(unresolved, [])
-        self.assertEqual(ready[0]['ip'], '198.51.100.2')
+        self.assertEqual(ready[0]['ip'], '45.83.64.2')
         self.assertEqual(ready[0]['hostname'], self.server['hostname'])
         self.assertEqual(ready[1], proton)
 
-    def test_config_ready_reports_unresolved_hosts(self):
+    def test_config_ready_falls_back_to_hostname_when_no_ip(self):
         with mock.patch.object(core, 'resolve_ipv4', return_value=[]):
-            ready, unresolved = core.config_ready([self.server])
-        self.assertEqual(ready, [])
-        self.assertEqual(unresolved, [self.server])
+            ready, by_name = core.config_ready([self.server])
+        self.assertEqual(ready[0]['ip'], self.server['hostname'])
+        self.assertEqual(by_name, [self.server['name']])
 
-    def test_config_refuses_a_hostname_endpoint(self):
+    def test_surfshark_hostname_endpoint_is_allowed(self):
+        server = {**self.server, 'ip': self.server['hostname']}
+        self.assertIn(f"Endpoint = {self.server['hostname']}:51820", core.build_wireguard_config(server, TEST_PRIVATE))
+
+    def test_proton_hostname_endpoint_is_refused(self):
+        proton = {'name': 'US#1', 'ip': 'node.example.com', 'cc': 'US', 'wg_key': self.server['wg_key'],
+                  'provider': core.PROVIDER_PROTON}
         with self.assertRaises(core.ConfigError) as ctx:
-            core.build_wireguard_config(self.server, TEST_PRIVATE)
+            core.build_wireguard_config(proton, TEST_PRIVATE)
         self.assertEqual(ctx.exception.code, 'bad_ip')
 
     def test_reply_threshold_rule(self):
@@ -226,22 +232,27 @@ class IpSourceWiringTests(unittest.TestCase):
         with mock.patch.object(core.socket, 'getaddrinfo') as dns, \
                 mock.patch.object(surfshark_core, 'handshake_rtt', return_value=(30, 'UDP:51820')) as handshake:
             found = core.scan_server(self.server, TEST_PRIVATE, core.SCAN_WITH_KEY, 10,
-                                     ips_for=lambda host: ['198.51.100.7'])
+                                     ips_for=lambda host: ['45.83.64.7'])
         dns.assert_not_called()
-        self.assertEqual(handshake.call_args.args[0], '198.51.100.7')
-        self.assertEqual(found['ip'], '198.51.100.7')
+        self.assertEqual(handshake.call_args.args[0], '45.83.64.7')
+        self.assertEqual(found['ip'], '45.83.64.7')
 
     def test_config_ready_uses_the_given_ip_source(self):
         with mock.patch.object(core.socket, 'getaddrinfo') as dns:
-            ready, unresolved = core.config_ready([self.server], ips_for=lambda host: ['198.51.100.8'])
+            ready, unresolved = core.config_ready([self.server], ips_for=lambda host: ['45.83.64.8'])
         dns.assert_not_called()
         self.assertEqual(unresolved, [])
-        self.assertEqual(ready[0]['ip'], '198.51.100.8')
+        self.assertEqual(ready[0]['ip'], '45.83.64.8')
 
-    def test_config_ready_without_ips_gives_unresolved(self):
-        ready, unresolved = core.config_ready([self.server], ips_for=lambda host: [])
-        self.assertEqual(ready, [])
-        self.assertEqual(unresolved, [self.server])
+    def test_config_ready_without_ips_uses_hostname(self):
+        ready, by_name = core.config_ready([self.server], ips_for=lambda host: [])
+        self.assertEqual(ready[0]['ip'], self.server['hostname'])
+        self.assertEqual(by_name, [self.server['name']])
+
+    def test_resolve_ipv4_drops_private_and_sinkhole_answers(self):
+        answers = [(None, None, None, None, (ip, 0)) for ip in ('10.10.34.34', '127.0.0.1', '45.83.64.5')]
+        with mock.patch.object(core.socket, 'getaddrinfo', return_value=answers):
+            self.assertEqual(core.resolve_ipv4('host.example'), ['45.83.64.5'])
 
 
 class WgCryptoTests(unittest.TestCase):

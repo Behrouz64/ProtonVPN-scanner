@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import requests
 
 import surfshark_core
+import surfshark_ips
 
 try:
     import qrcode
@@ -409,7 +410,7 @@ def resolve_ipv4(host, limit=SURFSHARK_IP_DEFAULT):
     ips = []
     for info in infos:
         ip = info[4][0]
-        if ip not in ips:
+        if ip not in ips and surfshark_ips.is_public_ipv4(ip):
             ips.append(ip)
     return ips[:limit]
 
@@ -437,8 +438,11 @@ def scan_server(server, private_key='', mode=SCAN_WITH_KEY, threshold=MIN_PLAUSI
 
 
 def config_ready(servers, ips_for=None):
-    """(سرورهای دارای IPv4 برای Endpoint، سرورهایی که نامشان حل نشد). Surfshark پیش از کانفیگ IP می‌گیرد."""
-    ready, unresolved = [], []
+    """(سرورهای آماده‌ی کانفیگ، نام سرورهایی که به‌جای IP نام میزبان گرفتند).
+
+    Surfshark اگر IP عمومی پیدا نشود، با نام میزبان نوشته می‌شود؛ کلاینت WireGuard خودش نام را حل می‌کند.
+    """
+    ready, by_name = [], []
     for server in servers:
         if server.get('provider') != PROVIDER_SURFSHARK or _is_ipv4(server.get('ip', '')):
             ready.append(server)
@@ -447,8 +451,9 @@ def config_ready(servers, ips_for=None):
         if ips:
             ready.append({**server, 'ip': ips[0]})
         else:
-            unresolved.append(server)
-    return ready, unresolved
+            ready.append({**server, 'ip': server['hostname']})
+            by_name.append(server['name'])
+    return ready, by_name
 
 
 def is_usable_reply(ping, threshold):
@@ -567,7 +572,7 @@ def build_wireguard_config(server, private_key='', address=WG_ADDRESS, dns=WG_DN
 
 def _check_server_host(server):
     """IPv4 برای Proton و نام میزبان برای Surfshark (در Endpoint همان مقدار استفاده می‌شود)."""
-    valid = _is_ipv4(server['ip'])
+    valid = _is_ipv4(server['ip']) or (server.get('provider') == PROVIDER_SURFSHARK and _is_hostname(server['ip']))
     if not valid:
         raise ConfigError('bad_ip', f"{server['name']}: server address is invalid")
 
