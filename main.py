@@ -5,6 +5,7 @@
 """
 import asyncio
 import os
+import time
 import traceback
 
 import flet as ft
@@ -16,6 +17,7 @@ try:
     import guide_content
     import i18n
     import scanner_core as core
+    import surfshark_ips
     import ui_parts as ui
 except Exception:
     IMPORT_ERROR = traceback.format_exc()
@@ -91,6 +93,10 @@ class ScannerApp:
     @property
     def cache_path(self):
         return os.path.join(self.support_dir, core.CACHE_FILE)
+
+    @property
+    def ip_cache_path(self):
+        return os.path.join(self.support_dir, surfshark_ips.CACHE_FILE)
 
     @property
     def export_dir(self):
@@ -303,6 +309,8 @@ class ScannerApp:
             bgcolor=ui.SURFACE, color=ui.TEXT, text_size=13,
         )
         self.surfshark_status = ui.body_text('', color=ui.TEXT_MUTED, size=12)
+        self.btn_fetch_ips = ui.secondary_button(t('btn_fetch_ips'), self.on_fetch_ips, icon=ft.Icons.CLOUD_DOWNLOAD)
+        self.ip_status = ui.body_text(self.ip_status_text(), color=ui.TEXT_MUTED, size=12)
         return ft.Column(
             [
                 ui.card(
@@ -318,6 +326,9 @@ class ScannerApp:
                     self.surfshark_field,
                     ui.body_text(t('surfshark_hint'), color=ui.TEXT_MUTED, size=12),
                     self.surfshark_status,
+                    ft.Row([self.btn_fetch_ips], spacing=8),
+                    ui.body_text(t('fetch_ips_hint'), color=ui.TEXT_MUTED, size=12),
+                    self.ip_status,
                 ),
                 self.results_header,
                 self.results_list,
@@ -356,6 +367,13 @@ class ScannerApp:
             on_select=self.on_threshold, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
             bgcolor=ui.SURFACE, color=ui.TEXT, width=260,
         )
+        self.ip_limit_dd = ft.Dropdown(
+            value=str(self.settings['surfshark_ip_limit']),
+            options=[ft.DropdownOption(key=str(n), text=t('ip_limit_option', n=n))
+                     for n in core.SURFSHARK_IP_CHOICES],
+            on_select=self.on_ip_limit, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
+            bgcolor=ui.SURFACE, color=ui.TEXT, width=260,
+        )
         self.awg_fields, self.awg_errors = {}, {}
         field_controls = []
         for key in core.AWG_KEYS:
@@ -382,6 +400,9 @@ class ScannerApp:
                     ui.heading(t('settings_threshold')),
                     self.threshold_dd,
                     ui.body_text(t('settings_threshold_hint'), color=ui.TEXT_MUTED, size=12),
+                    ui.heading(t('settings_ip_limit')),
+                    self.ip_limit_dd,
+                    ui.body_text(t('settings_ip_limit_hint'), color=ui.TEXT_MUTED, size=12),
                 ),
                 ui.card(
                     ui.heading(t('settings_obfs')),
@@ -664,6 +685,9 @@ class ScannerApp:
             self.set_status('warn', 'scan_end')
             return
 
+        ips_for = self.surfshark_ip_source()
+        if any(server.get('provider') == core.PROVIDER_SURFSHARK for server in batch) and not self.surfshark_has_ips():
+            self.toast('warn', 'surfshark_no_ip_cache')
         total = len(batch)
         threshold = self.settings['fake_threshold_ms']
         done = 0
@@ -675,10 +699,10 @@ class ScannerApp:
             async with gate:
                 if keyless:
                     found = await asyncio.to_thread(core.scan_server, server, '',
-                                                    core.SCAN_WITHOUT_KEY, threshold)
+                                                    core.SCAN_WITHOUT_KEY, threshold, ips_for)
                 else:
                     found = await asyncio.to_thread(core.scan_server, server, self.probe_key(server),
-                                                    core.SCAN_WITH_KEY, threshold)
+                                                    core.SCAN_WITH_KEY, threshold, ips_for)
             done += 1
             if done % 10 == 0 or done == total:
                 self.progress = (done, total)
@@ -874,6 +898,47 @@ class ScannerApp:
             raise UserError('export_nothing')
         await self.export_servers(top)
 
+    async def on_fetch_ips(self, e=None):
+        await self.guarded(self.do_fetch_ips)
+
+    async def do_fetch_ips(self):
+        """IP میزبان‌های Surfshark را با DNS سیستم حل و در کش ذخیره می‌کند؛ باید با VPN روشن اجرا شود."""
+        hosts = sorted({server['hostname'] for server in self.surfshark_servers})
+        fresh, failed = await asyncio.to_thread(surfshark_ips.refresh, hosts, core.resolve_ipv4,
+                                                time.time(), core.SURFSHARK_IP_MAX)
+        merged = surfshark_ips.merge_cache(surfshark_ips.load_cache(self.ip_cache_path), fresh)
+        await asyncio.to_thread(surfshark_ips.save_cache, self.ip_cache_path, merged)
+        self.ip_status.value = self.ip_status_text()
+        self.page.update()
+        if fresh:
+            self.toast('ok', 'fetch_ips_done', ok=len(fresh), total=len(hosts), failed=len(failed))
+        else:
+            self.toast('error', 'fetch_ips_none')
+
+    def surfshark_ip_source(self):
+        """تابع host -> IP برای اسکن و کانفیگ: کش تازه، سپس فهرست همراه برنامه، سپس DNS زنده."""
+        cache = surfshark_ips.load_cache(self.ip_cache_path)
+        bundled = surfshark_ips.load_bundled(core.SURFSHARK_IPS_FILE)
+        return surfshark_ips.ip_source(cache, bundled, core.resolve_ipv4, time.time(),
+                                       self.settings['surfshark_ip_limit'])
+
+    def surfshark_has_ips(self):
+        """آیا IP ذخیره‌شده یا همراه برنامه برای Surfshark داریم؟"""
+        cache = surfshark_ips.load_cache(self.ip_cache_path)
+        now = time.time()
+        if any(surfshark_ips.fresh_ips(cache, server['hostname'], now) for server in self.surfshark_servers):
+            return True
+        return bool(surfshark_ips.load_bundled(core.SURFSHARK_IPS_FILE))
+
+    def ip_status_text(self):
+        hosts = sorted({server['hostname'] for server in self.surfshark_servers})
+        cache = surfshark_ips.load_cache(self.ip_cache_path)
+        now = time.time()
+        known = sum(1 for host in hosts if surfshark_ips.fresh_ips(cache, host, now))
+        if not known:
+            return self.t('ip_cache_none')
+        return self.t('ip_cache_status', known=known, total=len(hosts))
+
     async def on_export_untested(self, e=None):
         await self.guarded(self.do_export_untested)
 
@@ -888,12 +953,13 @@ class ScannerApp:
 
     async def export_servers(self, servers):
         obfuscation = self.obfuscation()
+        ips_for = self.surfshark_ip_source()
         written, skipped = [], []
         for provider in (core.PROVIDER_PROTON, core.PROVIDER_SURFSHARK):
             group = [server for server in servers if server.get('provider', core.PROVIDER_PROTON) == provider]
             if not group:
                 continue
-            ready, unresolved = await asyncio.to_thread(core.config_ready, group)
+            ready, unresolved = await asyncio.to_thread(core.config_ready, group, ips_for)
             skipped += [server['name'] for server in unresolved]
             if not ready:
                 continue
@@ -912,6 +978,11 @@ class ScannerApp:
     # ---------- تنظیمات AmneziaWG ----------
     async def on_scan_mode(self, e):
         self.settings['scan_mode'] = self.selected_value(e.control)
+        await self.save_settings()
+        self.page.update()
+
+    async def on_ip_limit(self, e):
+        self.settings['surfshark_ip_limit'] = int(e.control.value)
         await self.save_settings()
         self.page.update()
 

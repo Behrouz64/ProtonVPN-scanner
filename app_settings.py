@@ -18,6 +18,7 @@ def default_settings():
         'obfuscation': dict(core.DEFAULT_OBFUSCATION),
         'scan_mode': core.SCAN_WITH_KEY,
         'fake_threshold_ms': core.MIN_PLAUSIBLE_PING_MS,
+        'surfshark_ip_limit': core.SURFSHARK_IP_DEFAULT,
     }
 
 
@@ -44,6 +45,9 @@ def load_settings(text):
     threshold = data.get('fake_threshold_ms')
     if isinstance(threshold, int) and not isinstance(threshold, bool) and threshold in core.FAKE_THRESHOLD_CHOICES:
         settings['fake_threshold_ms'] = threshold
+    ip_limit = data.get('surfshark_ip_limit')
+    if isinstance(ip_limit, int) and not isinstance(ip_limit, bool) and ip_limit in core.SURFSHARK_IP_CHOICES:
+        settings['surfshark_ip_limit'] = ip_limit
     return settings
 
 
@@ -55,6 +59,7 @@ def dump_settings(settings):
         'obfuscation': settings['obfuscation'],
         'scan_mode': settings.get('scan_mode', core.SCAN_WITH_KEY),
         'fake_threshold_ms': settings.get('fake_threshold_ms', core.MIN_PLAUSIBLE_PING_MS),
+        'surfshark_ip_limit': settings.get('surfshark_ip_limit', core.SURFSHARK_IP_DEFAULT),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

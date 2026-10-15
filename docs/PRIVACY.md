@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | زبان، تنظیمات AmneziaWG، روش اسکن و آستانه‌ی پاسخ فیک | تنظیمات محلی برنامه | کلید خصوصی در آن ذخیره نمی‌شود |
 | کش فهرست سرورها | `~/.protonvpn-scanner/cache_github.json` | برای اجرای سریع‌تر، حدود یک ساعت اعتبار دارد |
+| IP سرورهای Surfshark | `~/.protonvpn-scanner/surfshark_ips.json` | فقط نام میزبان و IPهای عمومی؛ ۲۴ ساعت اعتبار دارد |
 | کانفیگ‌های صادرشده | `~/.protonvpn-scanner/wireguard/` | با مجوز فقط برای خودتان (۰۶۰۰)، هر فایل کلید خصوصی شما را دارد |
 
 روی موبایل، این پوشه همان پوشه‌ی داده‌ی خصوصی برنامه است که سیستم عامل تعیین می‌کند.
@@ -27,6 +28,7 @@
   - `https://gh-proxy.com/https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
 - **پینگ** به IP سرورهای Proton روی TCP 443 و UDP 80. در روش «بدون کلید» برای Surfshark هم، نام میزبان هر سرور از DNS سیستم شما به IP تبدیل می‌شود و همین پینگ فرستاده می‌شود؛ کلید فرستاده نمی‌شود.
 - **تست Surfshark با کلید (پیش‌فرض):** یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Surfshark. نام میزبان هر سرور از DNS سیستم شما به حداکثر دو IP تبدیل می‌شود. هیچ ورود به حساب Surfshark و هیچ خواندن API انجام نمی‌شود. فهرست سرورهای Surfshark از فایل همراه برنامه خوانده می‌شود و از اینترنت دانلود نمی‌شود.
+- **DNS سرورهای Surfshark:** نام میزبان‌ها با DNS سیستم شما حل می‌شوند؛ هنگام «گرفتن IP» و هنگام اسکن (وقتی کش تازه نیست). اگر VPN روشن باشد، این درخواست‌ها از تونل می‌روند.
 - **باز کردن لینک‌ها** (راهنما، کانال Telegram، صفحه‌ی X) فقط با مرورگر شما انجام می‌شود.
 
 ## آنچه جمع‌آوری یا ارسال نمی‌شود
@@ -43,6 +45,6 @@
 
 ## Privacy (English summary)
 
-ProtonVPN Scanner stores your language, AmneziaWG, scan-method and fake-reply threshold settings, a one-hour server-list cache, and any config files you export (these contain your private key, with owner-only permissions). The private key is never written to the settings store and is kept in memory only while the app runs.
+ProtonVPN Scanner stores your language, AmneziaWG, scan-method and fake-reply threshold settings, a one-hour server-list cache, a 24-hour cache of Surfshark public IP addresses, and any config files you export (these contain your private key, with owner-only permissions). The private key is never written to the settings store and is kept in memory only while the app runs.
 
 The app downloads the server list from a third-party repository (`tn3w/ProtonVPN-IPs`), pings server IPs on TCP 443 and UDP 80, and, for Surfshark, either sends a WireGuard handshake with your key to UDP 51820 (default) or only pings when the no-key method is selected; Surfshark hostnames are resolved with the system DNS. It opens links only in your browser. It has no telemetry, analytics or crash reporting, and sends no data to the author.

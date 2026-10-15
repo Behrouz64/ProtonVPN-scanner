@@ -76,6 +76,25 @@ class ScanSettingsTests(unittest.TestCase):
         self.assertEqual(loaded['fake_threshold_ms'], 0)
 
 
+class IpLimitSettingsTests(unittest.TestCase):
+    def test_default_is_four_ips(self):
+        self.assertEqual(app_settings.default_settings()['surfshark_ip_limit'], core.SURFSHARK_IP_DEFAULT)
+        self.assertEqual(core.SURFSHARK_IP_DEFAULT, 4)
+
+    def test_only_listed_choices_are_loaded(self):
+        for value in core.SURFSHARK_IP_CHOICES:
+            loaded = app_settings.load_settings(json.dumps({'surfshark_ip_limit': value}))
+            self.assertEqual(loaded['surfshark_ip_limit'], value)
+        for payload in ({'surfshark_ip_limit': 3}, {'surfshark_ip_limit': True}, {'surfshark_ip_limit': '4'}):
+            with self.subTest(payload=payload):
+                loaded = app_settings.load_settings(json.dumps(payload))
+                self.assertEqual(loaded['surfshark_ip_limit'], core.SURFSHARK_IP_DEFAULT)
+
+    def test_round_trip_keeps_the_limit(self):
+        settings = {**app_settings.default_settings(), 'surfshark_ip_limit': 8}
+        self.assertEqual(app_settings.load_settings(app_settings.dump_settings(settings))['surfshark_ip_limit'], 8)
+
+
 class RoundTripAndBuildTests(unittest.TestCase):
     def test_dump_then_load_gives_same_settings(self):
         settings = {'language': 'en', 'obfuscation_enabled': False,
@@ -87,7 +106,7 @@ class RoundTripAndBuildTests(unittest.TestCase):
 
     def test_saved_file_never_contains_a_private_key_field(self):
         saved = json.loads(app_settings.dump_settings(app_settings.default_settings()))
-        self.assertEqual(set(saved), {'version', 'language', 'obfuscation_enabled', 'obfuscation', 'scan_mode', 'fake_threshold_ms'})
+        self.assertEqual(set(saved), {'version', 'language', 'obfuscation_enabled', 'obfuscation', 'scan_mode', 'fake_threshold_ms', 'surfshark_ip_limit'})
         self.assertNotIn(VALID_KEY, app_settings.dump_settings(app_settings.default_settings()))
 
     def test_reset_restores_suggested_values_only(self):

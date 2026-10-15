@@ -67,6 +67,10 @@ SCAN_WITH_KEY = 'key'
 SCAN_WITHOUT_KEY = 'keyless'
 SCAN_MODES = (SCAN_WITH_KEY, SCAN_WITHOUT_KEY)
 SURFSHARK_CATALOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'surfshark', 'servers.json')
+SURFSHARK_IPS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'surfshark', 'ips.json')
+SURFSHARK_IP_CHOICES = (1, 2, 4, 8)
+SURFSHARK_IP_DEFAULT = 4
+SURFSHARK_IP_MAX = max(SURFSHARK_IP_CHOICES)
 # آدرس و DNS پیش‌فرض تونل Surfshark؛ فقط کلید خصوصی از کاربر گرفته می‌شود
 SURFSHARK_ADDRESS = '10.14.0.2/16'
 SURFSHARK_DNS = '162.252.172.57, 149.154.159.92'
@@ -396,10 +400,7 @@ def probe_server(server, private_key='', mode=SCAN_WITH_KEY):
     return smart_ping(server['ip'])
 
 
-SURFSHARK_IPS_PER_HOST = 2
-
-
-def resolve_ipv4(host, limit=SURFSHARK_IPS_PER_HOST):
+def resolve_ipv4(host, limit=SURFSHARK_IP_DEFAULT):
     """حداکثر limit نشانی IPv4 یکتای نام میزبان (مثل dig A). خطای DNS یعنی فهرست خالی."""
     try:
         infos = socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM)
@@ -413,14 +414,14 @@ def resolve_ipv4(host, limit=SURFSHARK_IPS_PER_HOST):
     return ips[:limit]
 
 
-def scan_server(server, private_key='', mode=SCAN_WITH_KEY, threshold=MIN_PLAUSIBLE_PING_MS):
+def scan_server(server, private_key='', mode=SCAN_WITH_KEY, threshold=MIN_PLAUSIBLE_PING_MS, ips_for=None):
     """بهترین سرور پاسخ‌دهنده یا None.
 
     Surfshark فقط نام میزبان دارد: نشانی‌های IPv4 آن حل می‌شود و هر IP جداگانه سنجیده می‌شود.
     Proton همان IP خودش را دارد. خروجی همان سرور با IP پاسخ‌دهنده، ping و proto است.
     """
     if server.get('provider') == PROVIDER_SURFSHARK:
-        ips = resolve_ipv4(server['hostname'])
+        ips = ips_for(server['hostname']) if ips_for else resolve_ipv4(server['hostname'])
     else:
         ips = [server['ip']]
     best = None
@@ -435,14 +436,14 @@ def scan_server(server, private_key='', mode=SCAN_WITH_KEY, threshold=MIN_PLAUSI
     return {**candidate, 'ping': ping, 'proto': proto}
 
 
-def config_ready(servers):
+def config_ready(servers, ips_for=None):
     """(سرورهای دارای IPv4 برای Endpoint، سرورهایی که نامشان حل نشد). Surfshark پیش از کانفیگ IP می‌گیرد."""
     ready, unresolved = [], []
     for server in servers:
         if server.get('provider') != PROVIDER_SURFSHARK or _is_ipv4(server.get('ip', '')):
             ready.append(server)
             continue
-        ips = resolve_ipv4(server['hostname'], limit=1)
+        ips = ips_for(server['hostname']) if ips_for else resolve_ipv4(server['hostname'], limit=1)
         if ips:
             ready.append({**server, 'ip': ips[0]})
         else:

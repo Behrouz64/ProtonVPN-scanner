@@ -150,7 +150,7 @@ class ScanModeTests(unittest.TestCase):
         answers = [(None, None, None, None, (ip, 0)) for ip in
                    ('198.51.100.1', '198.51.100.1', '198.51.100.2', '198.51.100.3')]
         with mock.patch.object(core.socket, 'getaddrinfo', return_value=answers):
-            self.assertEqual(core.resolve_ipv4('host.example'), ['198.51.100.1', '198.51.100.2'])
+            self.assertEqual(core.resolve_ipv4('host.example', limit=2), ['198.51.100.1', '198.51.100.2'])
             self.assertEqual(core.resolve_ipv4('host.example', limit=1), ['198.51.100.1'])
 
     def test_resolve_ipv4_dns_error_gives_empty_list(self):
@@ -216,6 +216,32 @@ class ScanModeTests(unittest.TestCase):
     def test_threshold_choices_include_default(self):
         self.assertIn(core.MIN_PLAUSIBLE_PING_MS, core.FAKE_THRESHOLD_CHOICES)
         self.assertIn(0, core.FAKE_THRESHOLD_CHOICES)
+
+
+class IpSourceWiringTests(unittest.TestCase):
+    def setUp(self):
+        self.server = core.load_surfshark_catalog(CATALOG)[0]
+
+    def test_scan_server_uses_the_given_ip_source_instead_of_dns(self):
+        with mock.patch.object(core.socket, 'getaddrinfo') as dns, \
+                mock.patch.object(surfshark_core, 'handshake_rtt', return_value=(30, 'UDP:51820')) as handshake:
+            found = core.scan_server(self.server, TEST_PRIVATE, core.SCAN_WITH_KEY, 10,
+                                     ips_for=lambda host: ['198.51.100.7'])
+        dns.assert_not_called()
+        self.assertEqual(handshake.call_args.args[0], '198.51.100.7')
+        self.assertEqual(found['ip'], '198.51.100.7')
+
+    def test_config_ready_uses_the_given_ip_source(self):
+        with mock.patch.object(core.socket, 'getaddrinfo') as dns:
+            ready, unresolved = core.config_ready([self.server], ips_for=lambda host: ['198.51.100.8'])
+        dns.assert_not_called()
+        self.assertEqual(unresolved, [])
+        self.assertEqual(ready[0]['ip'], '198.51.100.8')
+
+    def test_config_ready_without_ips_gives_unresolved(self):
+        ready, unresolved = core.config_ready([self.server], ips_for=lambda host: [])
+        self.assertEqual(ready, [])
+        self.assertEqual(unresolved, [self.server])
 
 
 class WgCryptoTests(unittest.TestCase):
