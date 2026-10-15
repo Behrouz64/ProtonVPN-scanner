@@ -26,7 +26,7 @@
   - `https://fastly.jsdelivr.net/gh/tn3w/ProtonVPN-IPs@master/protonvpn_logicals.json`
   - `https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
   - `https://gh-proxy.com/https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_logicals.json`
-- **پینگ** به IP سرورهای Proton روی TCP 443 و UDP 80. در روش «بدون کلید» برای Surfshark هم، نام میزبان هر سرور از DNS سیستم شما به IP تبدیل می‌شود و همین پینگ فرستاده می‌شود؛ کلید فرستاده نمی‌شود.
+- **پینگ و Handshake Proton:** در روش «با کلید» یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Proton فرستاده می‌شود؛ در روش «بدون کلید» فقط پینگ TCP 443 و UDP 80 فرستاده می‌شود. در حالت Surfshark بدون کلید، نام میزبان هر سرور از DNS سیستم شما به IP تبدیل می‌شود و همین پینگ فرستاده می‌شود؛ کلید فرستاده نمی‌شود.
 - **تست Surfshark با کلید (پیش‌فرض):** یک پیام Handshake WireGuard با کلید خودتان به پورت UDP 51820 سرورهای Surfshark. نام میزبان هر سرور از DNS سیستم شما به حداکثر دو IP تبدیل می‌شود. هیچ ورود به حساب Surfshark و هیچ خواندن API انجام نمی‌شود. فهرست سرورهای Surfshark از فایل همراه برنامه خوانده می‌شود و از اینترنت دانلود نمی‌شود.
 - **DNS سرورهای Surfshark:** نام میزبان‌ها با DNS سیستم شما حل می‌شوند؛ هنگام «گرفتن IP» و هنگام اسکن (وقتی کش تازه نیست). اگر VPN روشن باشد، این درخواست‌ها از تونل می‌روند.
 - **باز کردن لینک‌ها** (راهنما، کانال Telegram، صفحه‌ی X) فقط با مرورگر شما انجام می‌شود.
@@ -47,4 +47,4 @@
 
 ProtonVPN Scanner stores your language, AmneziaWG, scan-method and fake-reply threshold settings, a one-hour server-list cache, a 24-hour cache of Surfshark public IP addresses, and any config files you export (these contain your private key, with owner-only permissions). The private key is never written to the settings store and is kept in memory only while the app runs.
 
-The app downloads the server list from a third-party repository (`tn3w/ProtonVPN-IPs`), pings server IPs on TCP 443 and UDP 80, and, for Surfshark, either sends a WireGuard handshake with your key to UDP 51820 (default) or only pings when the no-key method is selected; Surfshark hostnames are resolved with the system DNS. It opens links only in your browser. It has no telemetry, analytics or crash reporting, and sends no data to the author.
+The app downloads the server list from a third-party repository (`tn3w/ProtonVPN-IPs`), pings server IPs on TCP 443 and UDP 80, and, with the with-key scan method (default), sends a WireGuard handshake with your key to UDP 51820 for ProtonVPN and Surfshark servers; the no-key method only pings; Surfshark hostnames are resolved with the system DNS. It opens links only in your browser. It has no telemetry, analytics or crash reporting, and sends no data to the author.

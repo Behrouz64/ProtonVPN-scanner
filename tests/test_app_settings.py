@@ -100,18 +100,22 @@ class ExportFormatTests(unittest.TestCase):
 
 class UntestedCountTests(unittest.TestCase):
     def test_default_is_fifteen(self):
-        self.assertEqual(app_settings.default_settings()['untested_export_count'], 15)
-        self.assertEqual(core.UNTESTED_EXPORT_DEFAULT, 15)
+        self.assertEqual(app_settings.default_settings()['bulk_count'], 15)
+        self.assertEqual(core.BULK_COUNT_DEFAULT, 15)
+
+    def test_old_count_name_is_migrated(self):
+        loaded = app_settings.load_settings(json.dumps({'untested_export_count': 25}))
+        self.assertEqual(loaded['bulk_count'], 25)
 
     def test_only_listed_counts_are_loaded(self):
-        for value in core.UNTESTED_EXPORT_CHOICES:
-            loaded = app_settings.load_settings(json.dumps({'untested_export_count': value}))
-            self.assertEqual(loaded['untested_export_count'], value)
-        for payload in ({'untested_export_count': 7}, {'untested_export_count': True},
-                        {'untested_export_count': '15'}, {'untested_export_count': 0}):
+        for value in core.BULK_COUNT_CHOICES:
+            loaded = app_settings.load_settings(json.dumps({'bulk_count': value}))
+            self.assertEqual(loaded['bulk_count'], value)
+        for payload in ({'bulk_count': 7}, {'bulk_count': True},
+                        {'bulk_count': '15'}, {'bulk_count': 0}):
             with self.subTest(payload=payload):
                 loaded = app_settings.load_settings(json.dumps(payload))
-                self.assertEqual(loaded['untested_export_count'], core.UNTESTED_EXPORT_DEFAULT)
+                self.assertEqual(loaded['bulk_count'], core.BULK_COUNT_DEFAULT)
 
 
 class ScanSettingsTests(unittest.TestCase):
@@ -163,17 +167,17 @@ class IpLimitSettingsTests(unittest.TestCase):
 class RoundTripAndBuildTests(unittest.TestCase):
     def test_dump_then_load_gives_same_settings(self):
         settings = {**app_settings.default_settings(), 'language': 'en', 'export_formats': core.EXPORT_AWG,
-                    'obfuscation': {**core.DEFAULT_OBFUSCATION, 'S1': 3}, 'untested_export_count': 25}
+                    'obfuscation': {**core.DEFAULT_OBFUSCATION, 'S1': 3}, 'bulk_count': 25}
         loaded = app_settings.load_settings(app_settings.dump_settings(settings))
         self.assertEqual(loaded['language'], 'en')
         self.assertEqual(loaded['export_formats'], core.EXPORT_AWG)
         self.assertEqual(loaded['obfuscation']['S1'], 3)
-        self.assertEqual(loaded['untested_export_count'], 25)
+        self.assertEqual(loaded['bulk_count'], 25)
 
     def test_saved_file_never_contains_a_private_key_field(self):
         saved = json.loads(app_settings.dump_settings(app_settings.default_settings()))
         self.assertEqual(set(saved), {'version', 'language', 'export_formats', 'obfuscation', 'scan_mode',
-                                      'fake_threshold_ms', 'surfshark_ip_limit', 'untested_export_count'})
+                                      'fake_threshold_ms', 'surfshark_ip_limit', 'bulk_count'})
         self.assertNotIn(VALID_KEY, app_settings.dump_settings(app_settings.default_settings()))
 
     def test_reset_restores_suggested_values_only(self):

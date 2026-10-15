@@ -19,7 +19,7 @@ def default_settings():
         'scan_mode': core.SCAN_WITH_KEY,
         'fake_threshold_ms': core.MIN_PLAUSIBLE_PING_MS,
         'surfshark_ip_limit': core.SURFSHARK_IP_DEFAULT,
-        'untested_export_count': core.UNTESTED_EXPORT_DEFAULT,
+        'bulk_count': core.BULK_COUNT_DEFAULT,
     }
 
 
@@ -52,9 +52,10 @@ def load_settings(text):
     ip_limit = data.get('surfshark_ip_limit')
     if isinstance(ip_limit, int) and not isinstance(ip_limit, bool) and ip_limit in core.SURFSHARK_IP_CHOICES:
         settings['surfshark_ip_limit'] = ip_limit
-    count = data.get('untested_export_count')
-    if isinstance(count, int) and not isinstance(count, bool) and count in core.UNTESTED_EXPORT_CHOICES:
-        settings['untested_export_count'] = count
+    # نام قبلی این تنظیم untested_export_count بود؛ مقدار ذخیره‌شده‌ی آن هم خوانده می‌شود
+    count = data.get('bulk_count', data.get('untested_export_count'))
+    if isinstance(count, int) and not isinstance(count, bool) and count in core.BULK_COUNT_CHOICES:
+        settings['bulk_count'] = count
     return settings
 
 
@@ -67,7 +68,7 @@ def dump_settings(settings):
         'scan_mode': settings.get('scan_mode', core.SCAN_WITH_KEY),
         'fake_threshold_ms': settings.get('fake_threshold_ms', core.MIN_PLAUSIBLE_PING_MS),
         'surfshark_ip_limit': settings.get('surfshark_ip_limit', core.SURFSHARK_IP_DEFAULT),
-        'untested_export_count': settings.get('untested_export_count', core.UNTESTED_EXPORT_DEFAULT),
+        'bulk_count': settings.get('bulk_count', core.BULK_COUNT_DEFAULT),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -77,7 +78,8 @@ def reset_obfuscation(settings):
     return {**settings, 'obfuscation': dict(core.DEFAULT_OBFUSCATION)}
 
 
-def _checked_params(settings):
+def awg_params(settings):
+    """پارامترهای AmneziaWG معتبر از تنظیمات؛ خطا اگر مقدارها نامعتبر باشند."""
     params, errors = core.check_obfuscation(settings['obfuscation'])
     if errors:
         raise ValueError('obfuscation settings are invalid')
@@ -91,12 +93,12 @@ def card_obfuscation(settings):
     """
     if settings.get('export_formats') != core.EXPORT_AWG:
         return None
-    return _checked_params(settings)
+    return awg_params(settings)
 
 
 def export_obfuscations(settings):
     """برای هر فایل خروجی یک مدخل: None یعنی WireGuard استاندارد، دیکشنری یعنی AmneziaWG."""
     formats = settings.get('export_formats', core.EXPORT_BOTH)
     plain = [None] if formats in (core.EXPORT_WG, core.EXPORT_BOTH) else []
-    awg = [_checked_params(settings)] if formats in (core.EXPORT_AWG, core.EXPORT_BOTH) else []
+    awg = [awg_params(settings)] if formats in (core.EXPORT_AWG, core.EXPORT_BOTH) else []
     return plain + awg

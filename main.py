@@ -32,7 +32,7 @@ CONFIG_ERROR_KEYS = {
     'bad_private_key': 'err_key_invalid',
     'key_file_exists': 'err_key_file_exists',
 }
-QR_HINT_KEYS = {'config': 'qr_hint_config', 'link': 'qr_hint_link'}
+QR_HINT_KEYS = {'config': 'qr_hint_config', 'awg': 'qr_hint_awg', 'link': 'qr_hint_link'}
 AWG_ERROR_KEYS = {'number': 'err_awg_number', 'range': 'err_awg_range', 'order': 'err_awg_order'}
 TAB_SCAN, TAB_SERVERS, TAB_SETTINGS, TAB_GUIDE = range(4)
 PROVIDER_ALL = 'all'
@@ -307,16 +307,22 @@ class ScannerApp:
         self.browse_header = ui.body_text('', color=ui.TEXT, size=13, weight=ft.FontWeight.BOLD)
         self.browse_list = ft.Column(spacing=10)
         self.btn_more = ui.secondary_button(t('browse_more'), self.on_browse_more, icon=ft.Icons.EXPAND_MORE)
-        self.btn_export = ui.secondary_button(t('btn_export'), self.on_export, icon=ft.Icons.DOWNLOAD)
+        self.btn_export = ui.secondary_button(t('btn_export', n=self.settings['bulk_count']), self.on_export,
+                                              icon=ft.Icons.DOWNLOAD)
         self.btn_export_untested = ui.secondary_button(
-            t('btn_export_untested', n=self.settings['untested_export_count']), self.on_export_untested,
+            t('btn_export_untested', n=self.settings['bulk_count']), self.on_export_untested,
             icon=ft.Icons.DOWNLOAD)
-        self.btn_links = ui.secondary_button(t('btn_copy_links'), self.on_copy_links, icon=ft.Icons.LINK)
+        bulk = self.settings['bulk_count']
+        self.btn_copy_all = ui.secondary_button(t('btn_copy_all_links', count=0), self.on_copy_all_links,
+                                                icon=ft.Icons.LINK)
+        self.btn_copy_top = ui.secondary_button(t('btn_copy_top_links', n=bulk), self.on_copy_top_links,
+                                                icon=ft.Icons.LINK)
         return ft.Column(
             [
                 ui.card(
                     ui.heading(t('export_title')),
-                    ft.Row([self.btn_links], spacing=8),
+                    ft.Row([self.btn_copy_all], spacing=8),
+                    ft.Row([self.btn_copy_top], spacing=8),
                     ft.Row([self.btn_export], spacing=8),
                     ft.Row([self.btn_export_untested], spacing=8),
                     ui.body_text(t('export_untested_hint'), color=ui.TEXT_MUTED, size=12),
@@ -393,9 +399,9 @@ class ScannerApp:
         )
         self.obfs_hint = ui.body_text(self.formats_hint_text(), color=ui.TEXT_MUTED, size=12)
         self.untested_count_dd = ft.Dropdown(
-            value=str(self.settings['untested_export_count']),
+            value=str(self.settings['bulk_count']),
             options=[ft.DropdownOption(key=str(n), text=t('untested_count_option', n=n))
-                     for n in core.UNTESTED_EXPORT_CHOICES],
+                     for n in core.BULK_COUNT_CHOICES],
             on_select=self.on_untested_count, border_color=ui.BORDER, focused_border_color=ui.PRIMARY,
             bgcolor=ui.SURFACE, color=ui.TEXT, width=260,
         )
@@ -522,9 +528,16 @@ class ScannerApp:
 
         self.key_field.disabled = busy
         self.surfshark_field.disabled = busy
-        self.btn_export.disabled = busy or not has_results
+        alive = self.alive_in_scope()
+        bulk = self.settings['bulk_count']
+        self.btn_export.disabled = busy or not alive
+        self.btn_export.content = self.t('btn_export', n=bulk)
         self.btn_export_untested.disabled = busy or not scope
-        self.btn_links.disabled = busy or not scope
+        self.btn_export_untested.content = self.t('btn_export_untested', n=bulk)
+        self.btn_copy_all.disabled = busy or not alive
+        self.btn_copy_all.content = self.t('btn_copy_all_links', count=len(alive))
+        self.btn_copy_top.disabled = busy or not alive
+        self.btn_copy_top.content = self.t('btn_copy_top_links', n=min(bulk, len(alive)))
         rows = core.browse_order(scope, self.last_valid, self.tested_ids)
         shown = rows[:self.browse_limit]
         self.browse_list.controls = self.browse_items(shown)
@@ -745,9 +758,6 @@ class ScannerApp:
 
     async def run_batch(self):
         keyless = self.settings['scan_mode'] == core.SCAN_WITHOUT_KEY
-        if self.provider == core.PROVIDER_SURFSHARK and not keyless and self.surfshark_identity is None:
-            self.set_status('warn', 'surfshark_key_needed')
-            return
         continent, cc = self.scan_selection
         active_map = self.index.active_map if self.index else {}
         servers = core.filter_servers(self.all_filtered, continent, cc, active_map)
@@ -761,6 +771,13 @@ class ScannerApp:
             self.set_status('warn', 'scan_end')
             return
 
+        if not keyless:
+            try:
+                for server in batch:
+                    self.identity_for(server, required=True)
+            except UserError as exc:
+                self.set_status('warn', exc.key, **exc.values)
+                return
         ips_for = self.surfshark_ip_source()
         if any(server.get('provider') == core.PROVIDER_SURFSHARK for server in batch) and not self.surfshark_has_ips():
             self.toast('warn', 'surfshark_no_ip_cache')
@@ -810,6 +827,11 @@ class ScannerApp:
         """سرورهای محدوده‌ی انتخاب‌شده؛ فهرست نمایش و اسکن از همین تابع استفاده می‌کنند."""
         cc = core.cc_from_label(self.country)
         return core.filter_servers(self.all_filtered, self.continent, cc, self.index.active_map)
+
+    def alive_in_scope(self):
+        """سرورهای پاسخ‌دهنده‌ی محدوده به ترتیب پینگ؛ کپی و خروجی برترها از همین فهرست است."""
+        rows = core.browse_order(self.scope_servers(), self.last_valid, self.tested_ids)
+        return [server for state, server in rows if state == core.STATE_ALIVE]
 
     def browse_servers(self, limit):
         """سرورهای محدوده به ترتیب نمایش؛ برای خروجی و کپی گروهی."""
@@ -936,13 +958,12 @@ class ScannerApp:
         if not core.qr_available():
             raise UserError('err_qr_package')
         ready = await self.ready_server(server)
-        obfuscation = self.obfuscation()
-        # هر دو حالت همین‌جا ساخته می‌شوند تا خطای سرور قبل از باز شدن پنجره دیده شود
         payloads = {
             'config': core.build_wireguard_config(ready, ident.private_key, address=ident.address,
-                                                  dns=ident.dns, obfuscation=obfuscation),
-            'link': core.build_wg_link(ready, ident.private_key, obfuscation=obfuscation,
-                                       address=ident.address, dns=ident.dns),
+                                                  dns=ident.dns, obfuscation=None),
+            'awg': core.build_wireguard_config(ready, ident.private_key, address=ident.address,
+                                               dns=ident.dns, obfuscation=app_settings.awg_params(self.settings)),
+            'link': core.build_wg_link(ready, ident.private_key, address=ident.address, dns=ident.dns),
         }
         qr_box = ft.Container(bgcolor=ft.Colors.WHITE, border_radius=8)
         hint = ui.body_text('', color=ui.TEXT_MUTED, size=12)
@@ -959,6 +980,7 @@ class ScannerApp:
         mode_switch = ft.SegmentedButton(
             segments=[
                 ft.Segment(value='config', label=ft.Text(self.t('qr_mode_config'))),
+                ft.Segment(value='awg', label=ft.Text(self.t('qr_mode_awg'))),
                 ft.Segment(value='link', label=ft.Text(self.t('qr_mode_link'))),
             ],
             selected=['config'],
@@ -981,13 +1003,19 @@ class ScannerApp:
         )
         self.page.show_dialog(dialog)
 
-    async def on_copy_links(self, e=None):
-        await self.guarded(self.do_copy_links)
+    async def on_copy_all_links(self, e=None):
+        await self.guarded(lambda: self.do_copy_links(None))
 
-    async def do_copy_links(self):
-        servers = self.browse_servers(self.settings['untested_export_count'])
+    async def on_copy_top_links(self, e=None):
+        await self.guarded(lambda: self.do_copy_links(self.settings['bulk_count']))
+
+    async def do_copy_links(self, limit):
+        """wg:// همه‌ی سرورهای فعال محدوده (limit=None) یا N سرور برتر را در کلیپ‌بورد می‌گذارد."""
+        servers = self.alive_in_scope()
+        if limit is not None:
+            servers = servers[:limit]
         if not servers:
-            raise UserError('no_scope_servers')
+            raise UserError('no_alive_in_scope')
         ready, _ = await asyncio.to_thread(core.config_ready, servers, self.surfshark_ip_source())
         obfuscation = self.obfuscation()
         links, skipped = [], 0
@@ -999,7 +1027,7 @@ class ScannerApp:
             except core.ConfigError:
                 skipped += 1
         if not links:
-            raise UserError('no_scope_servers')
+            raise UserError('no_alive_in_scope')
         cc = core.cc_from_label(self.country)
         if cc != core.ALL_COUNTRIES:
             scope = self.country
@@ -1017,7 +1045,7 @@ class ScannerApp:
         await self.guarded(self.do_export)
 
     async def do_export(self):
-        top = core.top_results(self.last_valid, core.TOP_N)
+        top = self.alive_in_scope()[:self.settings['bulk_count']]
         if not top:
             raise UserError('export_nothing')
         await self.export_servers(top)
@@ -1069,7 +1097,7 @@ class ScannerApp:
 
     async def do_export_untested(self):
         """کانفیگ‌های محدوده را بدون تست تازه خروجی می‌گیرد؛ به ترتیب نمایش و به تعداد تنظیم‌شده."""
-        servers = self.browse_servers(self.settings['untested_export_count'])
+        servers = self.browse_servers(self.settings['bulk_count'])
         if not servers:
             raise UserError('export_nothing')
         await self.export_servers(servers)
@@ -1130,8 +1158,8 @@ class ScannerApp:
         self.page.update()
 
     async def on_untested_count(self, e):
-        self.settings['untested_export_count'] = int(e.control.value)
-        self.btn_export_untested.content = self.t('btn_export_untested', n=self.settings['untested_export_count'])
+        self.settings['bulk_count'] = int(e.control.value)
+        self.btn_export_untested.content = self.t('btn_export_untested', n=self.settings['bulk_count'])
         await self.save_settings()
         self.page.update()
 

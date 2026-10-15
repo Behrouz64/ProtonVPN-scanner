@@ -124,11 +124,28 @@ class ProbeDispatchTests(unittest.TestCase):
         self.assertEqual(result, (42, 'UDP:51820'))
         probe.assert_called_once_with('91.108.56.5', server['wg_key'], TEST_PRIVATE, port=server['port'])
 
-    def test_proton_keeps_the_ping(self):
-        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'provider': core.PROVIDER_PROTON}
-        with mock.patch.object(core, 'smart_ping', return_value=(120, 'TCP:443')) as ping:
-            self.assertEqual(core.probe_server(server, TEST_PRIVATE), (120, 'TCP:443'))
+    def test_proton_key_mode_runs_a_handshake_with_its_public_key(self):
+        key = core.load_surfshark_catalog(CATALOG)[0]['wg_key']
+        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'wg_key': key, 'provider': core.PROVIDER_PROTON}
+        with mock.patch.object(surfshark_core, 'handshake_rtt', return_value=(120, 'UDP:51820')) as handshake, \
+                mock.patch.object(core, 'smart_ping') as ping:
+            self.assertEqual(core.probe_server(server, TEST_PRIVATE), (120, 'UDP:51820'))
+        handshake.assert_called_once_with('91.108.56.7', key, TEST_PRIVATE, port=51820)
+        ping.assert_not_called()
+
+    def test_proton_keyless_scan_only_pings(self):
+        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'wg_key': '', 'provider': core.PROVIDER_PROTON}
+        with mock.patch.object(core, 'smart_ping', return_value=(120, 'TCP:443')) as ping, \
+                mock.patch.object(surfshark_core, 'handshake_rtt') as handshake:
+            self.assertEqual(core.probe_server(server, '', core.SCAN_WITHOUT_KEY), (120, 'TCP:443'))
         ping.assert_called_once_with('91.108.56.7')
+        handshake.assert_not_called()
+
+    def test_proton_key_mode_without_a_public_key_gives_no_reply(self):
+        server = {'name': 'US#1', 'ip': '91.108.56.7', 'cc': 'US', 'wg_key': '', 'provider': core.PROVIDER_PROTON}
+        with mock.patch.object(core, 'smart_ping') as ping:
+            self.assertEqual(core.probe_server(server, TEST_PRIVATE), (None, None))
+        ping.assert_not_called()
 
 
 class ScanModeTests(unittest.TestCase):

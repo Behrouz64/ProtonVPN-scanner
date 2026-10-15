@@ -8,7 +8,7 @@ GUIDE = {
                 ('p', 'ProtonVPN Scanner فهرست سرورهای ProtonVPN را می‌گیرد، سرعت هر سرور را می‌سنجد و سریع‌ترین‌ها را اول نشان می‌دهد.'),
                 ('p', 'سرعت با پینگ (ping) سنجیده می‌شود. پینگ یعنی زمانی که یک پیام کوچک لازم دارد تا به سرور برسد و برگردد. این زمان بر حسب میلی‌ثانیه (ms) است و هرچه عدد کمتر باشد، سرور سریع‌تر است.'),
                 ('p', 'برنامه برای سرورهای پیداشده، کانفیگ WireGuard هم می‌سازد. کانفیگ (config) یک فایل تنظیمات است که برنامه‌ی WireGuard آن را می‌خواند تا به سرور وصل شود.'),
-                ('p', 'سروری که «سالم» نشان داده می‌شود فقط از آزمون پینگ اولیه گذشته است. برای اطمینان، آن را در یک کلاینت واقعی تست کنید؛ بخش «تست واقعی با یک کلاینت» را ببینید.'),
+                ('p', 'سروری که «سالم» نشان داده می‌شود در روش «با کلید» یک Handshake واقعی WireGuard را پاس کرده است. در روش «بدون کلید» فقط پینگ آن گذشته است. برای اطمینان، آن را در یک کلاینت واقعی تست کنید؛ بخش «تست واقعی با یک کلاینت» را ببینید.'),
                 ('ul', [
                     'فهرست سرورها را بارگذاری کنید. به این فهرست «دیتابیس» (database) می‌گویند.',
                     'نوع سرور را انتخاب کنید: «رایگان» (Free)، «پولی» (Premium) یا «همه» (All). در صورت نیاز، قاره و کشور را هم انتخاب کنید.',
@@ -37,7 +37,7 @@ GUIDE = {
                     '«بارگذاری دیتابیس» (Load database) را بزنید. برنامه فهرست سرورها را از آینه‌های GitHub (نسخه‌هایی از همان فایل روی سرورهای دیگر) دانلود می‌کند. این فهرست یک ساعت در کامپیوتر شما نگه داشته می‌شود. اگر نسخه‌ی ذخیره‌شده هنوز تازه باشد، همان استفاده می‌شود و دوباره دانلود نمی‌شود.',
                     'نوع سرور را انتخاب کنید: «رایگان» (Free) سرورهای رایگان، «پولی» (Premium) سرورهای پولی، و «همه» (All) هر دو را نشان می‌دهد.',
                     'اختیاری: در منوی کشویی «همه‌ی قاره‌ها» (All continents) یک قاره و در منوی کشویی «همه‌ی کشورها» (All countries) یک کشور انتخاب کنید. برای دیدن همه‌ی سرورها، هر دو را روی حالت همه بگذارید.',
-                    '«شروع اسکن (۵۰۰)» (Start scan (500)) را بزنید. برنامه در یک مرحله پینگ ۵۰۰ سرور را می‌سنجد و سرورهایی را که پاسخ می‌دهند، یعنی سرورهای فعال، نگه می‌دارد.',
+                    '«شروع اسکن (۵۰۰)» (Start scan (500)) را بزنید. در روش «با کلید» هر سرور ProtonVPN و Surfshark با یک Handshake واقعی WireGuard و کلید شما سنجیده می‌شود؛ در روش «بدون کلید» فقط پینگ فرستاده می‌شود. سرورهایی را که جواب می‌دهند، یعنی سرورهای فعال، نگه می‌دارد.',
                     'برای سنجیدن ۵۰۰ سرور بعدی، «۵۰۰ بعدی» (Next 500) را بزنید. این کار را تا جایی که نتیجه‌ی کافی داشته باشید تکرار کنید.',
                     'برای شروع دوباره از اول، «شروع از نو» (Reset) را بزنید.',
                     'نتیجه‌ها در تب سرورها، سریع‌ترین‌ها اول، نشان داده می‌شوند. ۱۵ سرور برتر نمایش داده می‌شود.',
@@ -80,7 +80,7 @@ GUIDE = {
         {
             'title': 'تست واقعی با یک کلاینت',
             'blocks': [
-                ('p', 'برنامه سرورها را فقط با آزمون پینگ غربال می‌کند. سروری که «سالم» نشان داده می‌شود یعنی به پینگ اولیه جواب داده است. این یعنی احتمالاً در دسترس است، اما تضمین نمی‌کند که وصل شود، سرعت خوبی داشته باشد یا ترافیک شما را درست عبور دهد.'),
+                ('p', 'برنامه سرورها را در روش «با کلید» با Handshake واقعی WireGuard می‌سنجد و در روش «بدون کلید» فقط با پینگ. سروری که «سالم» نشان داده می‌شود یعنی به آزمون جواب داده است. این یعنی احتمالاً در دسترس است، اما تضمین نمی‌کند که وصل شود، سرعت خوبی داشته باشد یا ترافیک شما را درست عبور دهد.'),
                 ('p', 'برای تست واقعی، لینک‌های wg:// یا فایل‌های .conf را در یک کلاینت VPN بگذارید که بتواند چند کانفیگ را پشت سر هم تست کند. فقط سرورهایی را نگه دارید که واقعاً وصل می‌شوند و سرعت خوبی دارند.'),
                 ('ul', [
                     'Shadowrocket: برای iPhone و iPad، از App Store. لینک‌های wg:// را می‌خواند و پولی است. فرمت این لینک‌ها با همین برنامه آزمایش شده است.',
@@ -194,7 +194,7 @@ GUIDE = {
                 ('p', 'ProtonVPN Scanner gets the list of ProtonVPN servers, measures how fast each server answers, and shows the fastest ones first.'),
                 ('p', 'Speed is measured as ping. Ping is the time a small message needs to go to a server and come back. It is measured in milliseconds (ms). A lower number is faster.'),
                 ('p', 'For the servers it finds, the app can also build WireGuard config files. A config is a settings file. A WireGuard app reads it to connect to a server.'),
-                ('p', 'A server shown as alive has only passed the first ping test. To be sure it works, test it in a real client. See the section "Test for real with a client app".'),
+                ('p', 'A server shown as alive has answered the WireGuard handshake with your key (with-key method), or only the ping test (no-key method). To be sure it works, test it in a real client. See the section "Test for real with a client app".'),
                 ('ul', [
                     'Load the server list. In this app the list is called the database.',
                     'Choose the server type (Free, Premium or All). If you need, also choose a continent and a country.',
@@ -223,7 +223,7 @@ GUIDE = {
                     'Press Load database. The app downloads the server list from GitHub mirrors (copies of the same file on other servers). The list is kept on your computer for one hour. If the saved copy is still fresh, Load database uses it and does not download again.',
                     'Choose a server type. Free shows free servers, Premium shows paid servers, and All shows both.',
                     'Optional: in the All continents dropdown choose one continent, and in the All countries dropdown choose one country. Leave both on All to include every server.',
-                    'Press Start scan (500). The app measures the ping of 500 servers in one round. It keeps the servers that answer. These are called alive servers.',
+                    'Press Start scan (500). With a key, each server is tested with a real WireGuard handshake; without a key, only a ping is sent. It keeps the servers that answer. These are called alive servers.',
                     'To test the next 500 servers, press Next 500. Repeat as needed until you have enough results.',
                     'To start again from the beginning, press Reset.',
                     'Results appear on the Servers tab, fastest first. The top 15 are shown.',
@@ -266,7 +266,7 @@ GUIDE = {
         {
             'title': 'Test for real with a client app',
             'blocks': [
-                ('p', 'The app screens servers with a ping test only. A server shown as alive has answered the first ping. This means it is probably reachable, but it does not guarantee that it connects, is fast, or carries your traffic correctly.'),
+                ('p', 'The app screens servers with the WireGuard handshake when a key is used, and with a ping only when no key is used. A server shown as alive has answered the test. This means it is probably reachable, but it does not guarantee that it connects, that it is fast, or that it carries your traffic correctly.'),
                 ('p', 'For a real test, put the wg:// links or .conf files into a VPN client that can test several configs in a row. Keep only the servers that really connect and are fast.'),
                 ('ul', [
                     'Shadowrocket: for iPhone and iPad, from the App Store. It reads wg:// links and it is a paid app. The wg:// format used here was tested with this app.',

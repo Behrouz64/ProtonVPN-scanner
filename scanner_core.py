@@ -51,8 +51,8 @@ EXPORT_WG = 'wg'
 EXPORT_AWG = 'awg'
 EXPORT_BOTH = 'both'
 EXPORT_FORMATS = (EXPORT_BOTH, EXPORT_WG, EXPORT_AWG)
-UNTESTED_EXPORT_CHOICES = (5, 10, 15, 25, 50)
-UNTESTED_EXPORT_DEFAULT = 15
+BULK_COUNT_CHOICES = (5, 10, 15, 25, 50)
+BULK_COUNT_DEFAULT = 15
 
 PROTON_UDP_PROBE = b'\x38\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
@@ -396,15 +396,15 @@ def smart_ping(ip, timeout=1.5):
 
 
 def probe_server(server, private_key='', mode=SCAN_WITH_KEY):
-    """(ms, برچسب) برای یک سرور.
+    """(ms, برچسب) برای یک سرور؛ server['ip'] باید IPv4 باشد.
 
-    با کلید: Surfshark با Handshake واقعی WireGuard سنجیده می‌شود (نیاز به کلید دارد).
-    بدون کلید: فقط پینگ TCP/UDP، و برای Surfshark روی نشانی IPv4 حل‌شده. Proton همیشه پینگ است.
+    با کلید: Handshake واقعی WireGuard با کلید حساب کاربر و کلید عمومی همان سرور، برای Proton و Surfshark.
+    بدون کلید: فقط پینگ TCP/UDP؛ این نتیجه تأیید WireGuard نیست.
     """
-    if server.get('provider') == PROVIDER_SURFSHARK and mode != SCAN_WITHOUT_KEY:
-        return surfshark_core.handshake_rtt(server['ip'], server['wg_key'], private_key,
-                                            port=server.get('port', WG_PORT))
-    return smart_ping(server['ip'])
+    if mode == SCAN_WITHOUT_KEY:
+        return smart_ping(server['ip'])
+    return surfshark_core.handshake_rtt(server['ip'], server.get('wg_key', ''), private_key,
+                                        port=server.get('port', WG_PORT))
 
 
 def resolve_ipv4(host, limit=SURFSHARK_IP_DEFAULT):
